@@ -1,0 +1,10 @@
+*/*
+Makefile
+*.mod
+*.stackdump
+*.txt
+*.zip
+*.rar
+*.o
+*.out
+fort.*
