@@ -409,6 +409,7 @@ C Partition K into Kbb,Kbi,Kib,Kii, and F into Fi,Fb
       
       SUBROUTINE LINEARTEMP(AX,BX,AY,BY,TTOP,TBOTTOM,NX,NY,
      & TEMPERATURE,GLOBALDOFS,NDOFS)
+C Temperature = TBOTTOM + dT*dx
           INCLUDE 'ABA_PARAM.INC'
           INTEGER :: NDOFS
           INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
@@ -427,29 +428,72 @@ C Partition K into Kbb,Kbi,Kib,Kii, and F into Fi,Fb
           
           RETURN
       END SUBROUTINE LINEARTEMP
+
+      SUBROUTINE QUADRATICTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
+     & TEMPERATURE,GLOBALDOFS,NDOFS)
+C Temperature = A+Bx+Cx**2
+C A = TBOTTOM
+C B = -(3*TBOTTOM-4*TMID+TTOP)/(BX-AX)
+C C = 2*(TBOTTOM-2*TMID+TTOP)/(BX-AX)**2
+        INCLUDE 'ABA_PARAM.INC'
+        INTEGER :: NDOFS
+        INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
+        DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TMID,TBOTTOM
+        DOUBLE PRECISION :: TEMPERATURE(NDOFS)
+        DOUBLE PRECISION :: A,B,C 
+
+C Define quadratic coefficients, with x = 0 at bottom face
+        A = TBOTTOM
+        B = -(3.0D0*TBOTTOM-4.0D0*TMID+TTOP)/(BX-AX)
+        C = 2.0D0*(TBOTTOM-2.0D0*TMID+TTOP)/((BX-AX)**2.0D0)
+
+        DO I=1,NX+1
+            DO J=1,NY+1
+              DX=(BX-AX)*(I-1)/NX
+              TEMPERATURE(GLOBALDOFS(I,J,1)) = A+B*DX+C*(DX**2.0D0)
+              TEMPERATURE(GLOBALDOFS(I,J,2)) = A+B*DX+C*(DX**2.0D0)
+            END DO
+        END DO
+
+        RETURN
+
+      END SUBROUTINE QUADRATICTEMP
       
-      SUBROUTINE CONSTANTTEMP(TEMPERATURE,NDOFS)
+      SUBROUTINE CONSTANTTEMP(TTOP,TEMPERATURE,NDOFS)
+C Temperature = TTOP
           INTEGER :: NDOFS
-          DOUBLE PRECISION :: TEMPERATURE(NDOFS)
+          DOUBLE PRECISION :: TTOP,TEMPERATURE(NDOFS)
           
-          TEMPERATURE = 5.0D0
+          TEMPERATURE = TTOP
           RETURN
       END SUBROUTINE CONSTANTTEMP
       
       SUBROUTINE FTHERMALBEAM(AX,BX,AY,BY,THICK,YOUNG,ALPHAX,
-     & ALPHAY,TTOP,TBOTTOM,FBEAM)
+     & ALPHAY,TREF,TTYPE,TTOP,TMID,TBOTTOM,FBEAM)
           INCLUDE 'ABA_PARAM.INC'
+          INTEGER :: TTYPE
           DOUBLE PRECISION :: AX,BX,AY,BY,THICK,YOUNG,ALPHAX,
-     & ALPHAY,TTOP,TBOTTOM
+     & ALPHAY,TREF,TTOP,TMID,TBOTTOM
           DOUBLE PRECISION :: FBEAM(6)
           DOUBLE PRECISION :: A,IZ,P,M,LX,LY
           
           LY = BX-AX
           LX = BY-AY
           A = LY*THICK
-          IZ = THICK*(LY**3)/12.0D0 
-          P = 0.5*(TTOP+TBOTTOM)*YOUNG*A*ALPHAY
-          M = YOUNG*IZ*ALPHAY*(TTOP-TBOTTOM)/LY
+          IZ = THICK*(LY**3)/12.0D0
+          
+          IF(TTYPE .EQ. 0) THEN !Constant temperature - only TTOP is read
+            P = (TTOP-TREF)*YOUNG*A*ALPHAY
+            M = 0.0D0
+          ELSEIF(TTYPE .EQ. 1) THEN !Linear temperature - only TTOP and TBOTTOM are read
+            P = 0.5*(TTOP+TBOTTOM-2.0D0*TREF)*YOUNG*A*ALPHAY
+            M = YOUNG*IZ*ALPHAY*(TTOP-TBOTTOM)/LY
+          ELSEIF(TTYPE .EQ. 2) THEN !Quadratic temperature - TTOP, TMID, TBOTTOM are read
+C Khazanovich (1994) Eqs. 7.35, 7.37, and 7.38
+            P = (((TTOP+TBOTTOM+4.0D0*TMID)/6.0D0)-TREF)*YOUNG*A*ALPHAY 
+C Khazanovich (1994) Eqs. 7.36 and 7.39
+            M = YOUNG*IZ*ALPHAY*(TTOP-TBOTTOM)/LY
+          END IF
           
           FBEAM(1) = 0.0D0
           FBEAM(2) = -P
