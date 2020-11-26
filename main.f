@@ -139,7 +139,7 @@ C Elastic
      & NDOFS,LOCALDOFS)  
                 END IF
           END DO
-
+          
 C Add the damping factor
             DO I=1,NDAMPEDDOFS
                 KGLOBAL(DAMPEDDOFS(I),DAMPEDDOFS(I)) = 
