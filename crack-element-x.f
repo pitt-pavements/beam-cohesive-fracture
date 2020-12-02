@@ -38,6 +38,9 @@ C boundary DOFs. This makes static condensation much easier
           ELSEIF(TTYPE .EQ. 2) THEN !Quadratic temperature
             CALL QUADRATICTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
      & TEMPERATURE,GLOBALDOFS,NDOFS)
+          ELSEIF(TTYPE .EQ. 3) THEN !Trilinear temperature
+            CALL TRILINEARTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
+     & TEMPERATURE,GLOBALDOFS,NDOFS)
           ENDIF
           
 

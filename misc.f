@@ -204,6 +204,10 @@
             DO I=1,NELEM
                 READ(11,*) TTOP(I),TMID(I),TBOTTOM(I)
             END DO
+          ELSEIF(TTYPE .EQ. 3) THEN !Trilinear temprature distribution
+            DO I=1,NELEM
+                READ(11,*) TTOP(I),TMID(I),TBOTTOM(I)
+            END DO
           END IF
           
           READ(11,*) NIX,NIY

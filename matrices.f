@@ -458,6 +458,48 @@ C Define quadratic coefficients, with x = 0 at bottom face
         RETURN
 
       END SUBROUTINE QUADRATICTEMP
+
+      SUBROUTINE TRILINEARTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
+     & TEMPERATURE,GLOBALDOFS,NDOFS)
+C Hourglass-type distribution
+C Top 1/4: linear between Tm and Tt
+C Middle 1/2: constant Tm
+C Bottom 1/4: linear between Tm and Tb   
+
+        INCLUDE 'ABA_PARAM.INC'
+        INTEGER :: NDOFS
+        INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
+        DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TMID,TBOTTOM
+        DOUBLE PRECISION :: TEMPERATURE(NDOFS)
+        DOUBLE PRECISION :: H,Z,TEMPVAL 
+
+C Thickness
+        H = BX-AX
+
+        DO I=1,NX+1
+            DO J=1,NY+1
+              Z=(BX-AX)*(I-1)/NX
+              IF((Z/H .GE. 0.0D0) .AND. (Z/H .LT. 0.25D0)) THEN
+C Bottom distribution
+                TEMPVAL = 4.0D0*TBOTTOM*(0.25D0-Z/H)+4.0D0*TMID*Z/H
+                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
+                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
+              ELSE IF((Z/H .GE. 0.25D0) .AND. (Z/H .LT. 0.75D0)) THEN
+C Middle distribution
+                TEMPVAL = TMID
+                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
+                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
+              ELSE
+C Top distribution
+                TEMPVAL = 4.0D0*TMID*(1.0D0-Z/H)+
+     & 4.0D0*TTOP*(-0.75D0+Z/H)
+                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
+                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
+              END IF
+            END DO
+        END DO
+
+      END SUBROUTINE TRILINEARTEMP 
       
       SUBROUTINE CONSTANTTEMP(TTOP,TEMPERATURE,NDOFS)
 C Temperature = TTOP
@@ -493,6 +535,11 @@ C Khazanovich (1994) Eqs. 7.35, 7.37, and 7.38
             P = (((TTOP+TBOTTOM+4.0D0*TMID)/6.0D0)-TREF)*YOUNG*A*ALPHAY 
 C Khazanovich (1994) Eqs. 7.36 and 7.39
             M = YOUNG*IZ*ALPHAY*(TTOP-TBOTTOM)/LY
+          ELSEIF(TTYPE .EQ. 3) THEN !Trilinear temperature - TTOP, TMID, TBOTTOM are read
+C Derived from Khazanovich (1994) Eq. 7.32
+            P = (((TTOP+TBOTTOM+6.0D0*TMID)/8.0D0)-TREF)*YOUNG*A*ALPHAY
+C Derived from Khazanovich (1994) Eq. 7.33
+            M = YOUNG*IZ*ALPHAY*(5.0D0/8.0D0)*(TTOP-TBOTTOM)/LY
           END IF
           
           FBEAM(1) = 0.0D0
