@@ -484,7 +484,7 @@ C Bottom distribution
                 TEMPVAL = 4.0D0*TBOTTOM*(0.25D0-Z/H)+4.0D0*TMID*Z/H
                 TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
                 TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
-              ELSE IF((Z/H .GE. 0.25D0) .AND. (Z/H .LT. 0.75D0)) THEN
+              ELSE IF((Z/H .GE. 0.25D0) .AND. (Z/H .LE. 0.75D0)) THEN
 C Middle distribution
                 TEMPVAL = TMID
                 TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
@@ -500,6 +500,56 @@ C Top distribution
         END DO
 
       END SUBROUTINE TRILINEARTEMP 
+
+      SUBROUTINE TRIBLOCKTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
+     & TEMPERATURE,GLOBALDOFS,NDOFS)
+C Triple-block type distribution
+C Top 1/4: constant Tt
+C Middle 1/2: constant Tm
+C Bottom 1/4: constant Tb
+   
+        INCLUDE 'ABA_PARAM.INC'
+        INTEGER :: NDOFS
+        INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
+        DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TMID,TBOTTOM
+        DOUBLE PRECISION :: TEMPERATURE(NDOFS)
+        DOUBLE PRECISION :: H,Z,TEMPVAL 
+   
+C Thickness
+        H = BX-AX
+
+        DO I=1,NX+1
+            DO J=1,NY+1
+                Z=(BX-AX)*(I-1)/NX
+                IF((Z/H .GE. 0.0D0) .AND. (Z/H .LT. 0.25D0)) THEN
+C Bottom distribution
+                TEMPVAL = TBOTTOM
+                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
+                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
+                ELSE IF(Z/H .EQ. 0.25D0) THEN
+C Discontinuity set to average value
+                TEMPVAL = 0.50D0*(TBOTTOM+TMID)
+                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
+                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
+                ELSE IF((Z/H .GT. 0.25D0) .AND. (Z/H .LT. 0.75D0)) THEN
+C Middle distribution
+                TEMPVAL = TMID
+                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
+                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
+                ELSE IF(Z/H .EQ. 0.75D0) THEN
+                TEMPVAL = 0.50D0*(TMID+TTOP)
+                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
+                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
+                ELSE
+C Top distribution
+                TEMPVAL = TTOP
+                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
+                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
+                END IF
+            END DO
+        END DO
+   
+        END SUBROUTINE TRIBLOCKTEMP 
       
       SUBROUTINE CONSTANTTEMP(TTOP,TEMPERATURE,NDOFS)
 C Temperature = TTOP
@@ -540,6 +590,11 @@ C Derived from Khazanovich (1994) Eq. 7.32
             P = (((TTOP+TBOTTOM+6.0D0*TMID)/8.0D0)-TREF)*YOUNG*A*ALPHAY
 C Derived from Khazanovich (1994) Eq. 7.33
             M = YOUNG*IZ*ALPHAY*(5.0D0/8.0D0)*(TTOP-TBOTTOM)/LY
+          ELSEIF(TTYPE .EQ. 4) THEN !Triblock temperature - TTOP, TMID, TBOTTOM are read
+C Derived from Khazanovich (1994) Eq. 7.32
+            P = (((TTOP+TBOTTOM+2.0D0*TMID)/4.0D0)-TREF)*YOUNG*A*ALPHAY
+C Derived from Khazanovich (1994) Eq. 7.33
+            M = YOUNG*IZ*ALPHAY*(9.0D0/8.0D0)*(TTOP-TBOTTOM)/LY
           END IF
           
           FBEAM(1) = 0.0D0

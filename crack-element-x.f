@@ -38,8 +38,11 @@ C boundary DOFs. This makes static condensation much easier
           ELSEIF(TTYPE .EQ. 2) THEN !Quadratic temperature
             CALL QUADRATICTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
      & TEMPERATURE,GLOBALDOFS,NDOFS)
-          ELSEIF(TTYPE .EQ. 3) THEN !Trilinear temperature
+          ELSEIF(TTYPE .EQ. 3) THEN !Trilinear temperature - use 12x6
             CALL TRILINEARTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
+     & TEMPERATURE,GLOBALDOFS,NDOFS)
+          ELSEIF(TTYPE .EQ. 4) THEN !Triblock temperature - use 10x5
+          CALL TRIBLOCKTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
      & TEMPERATURE,GLOBALDOFS,NDOFS)
           ENDIF
           
@@ -155,7 +158,5 @@ C Static condensation - get KBBTILDE, INVKII, KIB
 C Translate KBBTILDE to KBEAM
           KBEAM = MATMUL(TMAT,MATMUL(KBBTILDE,SMAT))
           FBEAM = MATMUL(TMAT,FBTILDE)
-          
-C          WRITE(50,*) TSTEP, FBEAM
       
       END SUBROUTINE CRACKELEMENTX

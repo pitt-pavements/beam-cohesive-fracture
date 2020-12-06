@@ -126,7 +126,7 @@ c Read input data & Initialize
        n_GP = 2
        ratioMin = 0.95D0
        T_nmin = 1.0D-10
-       data GP   / 0.577350269189626 , -0.577350269189626 /
+       data GP   / -0.577350269189626 , 0.577350269189626 / !Reversed this for consistent printing order - 12.5.2020
        data GP_W / 1.0 , 1.0 /
        call k_Matrix_Zero (RHS,ndofel,nrhs)
        call k_Matrix_Zero (AMATRX,ndofel,ndofel)
@@ -189,8 +189,8 @@ c Numerical integration to compute RHS and AMATRX
 
 C Secant matrix implementation
 C Normal interaction
-	  if(KSTEP .EQ. 1) then !Initial slope
-		T_d(i,:,:) = T_dnode(:,:)
+      if(KSTEP .EQ. 1) then !Initial slope
+         T_d(i,:,:) = T_dnode(:,:)
           elseif(T(2,1) .LT. 0.0D0) then !Contact
               T_d(i,:,:) = T_dnode(:,:)
           elseif((del(2) .GE. dn) .OR. 
@@ -210,7 +210,7 @@ C Normal interaction
                     ratio = del(2)*T_d(i,2,2)/T(2,1)
                 end do
               end if
-	  end if
+	    end if
           
 C Tangential interaction
           if(KSTEP .EQ. 1) then !Initial slope
@@ -231,11 +231,11 @@ C Tangential interaction
                     ratio = abs(del(1))*T_d(i,1,1)/T(1,1)
                 end do
               end if
-	  end if              
+	      end if              
  
 C          T_d(i,:,:) = T_dnode(:,:)
 
-	  WRITE(80,*) KSTEP,i,T(2,1)
+C	      WRITE(80,*) KSTEP,i,T(2,1)
      
           ShapeN(1) = -N1
           ShapeN(2) = -N2
@@ -266,6 +266,29 @@ c   Update the state variables: SVARS
           end if
        end do
        
+C Evaluate and print cohesive stresses at nodes
+      del(1) = del1
+      del(2) = del2
+      IF(MODELTYPE .EQ. 1) THEN
+         call k_Cohesive_PPR (T, T_dnode, Gam_n, Gam_t, alph, beta, 
+     &  m, n, dn, dt, dGtn, dGnt, del, deln_max, delt_max)
+         ELSE
+            call k_Bilinear_Coh(T,T_dnode,Gn,Gt,Tn_m,Tt_m,
+     & dn, dt, del)
+      END IF
+      WRITE(80,*) KSTEP,1,T(2,1)
+
+      del(1) = del3
+      del(2) = del4
+      IF(MODELTYPE .EQ. 1) THEN
+         call k_Cohesive_PPR (T, T_dnode, Gam_n, Gam_t, alph, beta, 
+     &  m, n, dn, dt, dGtn, dGnt, del, deln_max, delt_max)
+         ELSE
+            call k_Bilinear_Coh(T,T_dnode,Gn,Gt,Tn_m,Tt_m,
+     & dn, dt, del)
+      END IF
+      WRITE(80,*) KSTEP,2,T(2,1)
+
        RETURN
        END SUBROUTINE UEL
 c
