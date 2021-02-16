@@ -1,31 +1,38 @@
-      SUBROUTINE CRACKELEMENTX(VB,AX,BX,AY,BY,THICK,YOUNG,
-     & POISSON,TREF,TTYPE,TTOP,TMID,TBOTTOM,ALPHAX,ALPHAY,PROPS,TSTEP,
-     & INVKII,KIB,KBEAM,FI,FBEAM,T_d,NX,NY,NDOFS,NBDOFS,NIDOFS,FULLINT,
-     & FSEP,FDISPI,FFORCEI,MODELTYPE,DBCOH)
-          USE MATRIXFUNCTIONS
+      SUBROUTINE CRACKELEMENTX(AX,BX,AY,BY,THICK,YOUNG,POISSON,
+     & TREF,TTYPE,TTOP,TMID,TBOTTOM,ALPHAX,ALPHAY,VB,PROPS,
+     & TSTEP,KBEAM,FBEAM,KIB,FI,T_d,NX,NY,NDOFS,NBDOFS,NIDOFS,
+     & FULLINT,FSEP,FDISPI,FFORCEI,MODELTYPE,DBCOH,
+     & INVKII,nband,KGLOBALB)
+c          USE MATRIXFUNCTIONS
           INCLUDE 'ABA_PARAM.INC'
+      
+          DOUBLE PRECISION AX,BX,AY,BY,THICK,YOUNG,POISSON,TREF
+          INTEGER TTYPE,TSTEP
+          DOUBLE PRECISION TTOP,TMID,TBOTTOM,ALPHAX,ALPHAY
+          DOUBLE PRECISION VB(6),PROPS(9)
+          DOUBLE PRECISION KBEAM(6,6),FBEAM(6),KIB(NIDOFS,NBDOFS),
+     & FI(NIDOFS),T_d(NX,2,2,2)
+          INTEGER NX,NY,NDOFS,NBDOFS,NIDOFS
+          LOGICAL :: FULLINT	
+      INTEGER FSEP,FDISPI,FFORCEI,MODELTYPE,DBCOH
+      DOUBLE PRECISION :: INVKII(nband,NIDOFS), KGLOBALB(NBAND,NDOFS)
 
-          INTEGER :: NX,NY,NDOFS,NBDOFS,NIDOFS,TSTEP,FSEP,
-     & DBCOH,MODELTYPE,FDISPI,FFORCEI,TTYPE
-          DOUBLE PRECISION :: AX,BX,AY,BY,THICK,YOUNG,POISSON,TREF,
-     & TTOP,TMID,TBOTTOM,ALPHAX,ALPHAY
-          DOUBLE PRECISION :: VB(6),PROPS(9),KBEAM(6,6),
-     & INVKII(NIDOFS,NIDOFS),KIB(NIDOFS,NBDOFS),
-     & UI(NIDOFS),T_d(NX,2,2,2),FI(NIDOFS)
-          LOGICAL :: FULLINT,ISOTROPIC
-          
+      DOUBLE PRECISION UI(NIDOFS)
+ 
+          LOGICAL :: ISOTROPIC
           INTEGER :: II,NDOFEL=8
           INTEGER :: GLOBALDOFS(NX+1,NY+1,2),ELEMENTDOFS(NX,NY,8),
      & LOCALDOFS(8),BDOFS(NBDOFS),IDOFS(NIDOFS)
           DOUBLE PRECISION :: AXL,BXL,AYL,BYL,YMID
-          DOUBLE PRECISION :: KELASTIC(8,8),KGLOBAL(NDOFS,NDOFS),
+          DOUBLE PRECISION :: KELASTIC(8,8),
      & KCOH(8,8),COHU(8),U(NDOFS),COORDS(2,4),T_de(2,2,2),
      & SMAT(NBDOFS,6),TMAT(6,NBDOFS),UB(NBDOFS),
      & KBBTILDE(NBDOFS,NBDOFS),TEMPERATURE(NDOFS),TELEMENT(8),
-     & FGLOBAL(NDOFS),FLOCAL(8),FBTILDE(NBDOFS),FBEAM(6)
+     & FGLOBAL(NDOFS),FLOCAL(8),FBTILDE(NBDOFS),TL(NDOFS),
+     & TNL(NDOFS)
 
-C Define element connectivity. Note that 1-8 are always 
-C boundary DOFs. This makes static condensation much easier
+C Define element connectivity. 
+ 
           CALL ASSIGNNODEDOFS(GLOBALDOFS,NX,NY)
           CALL ASSIGNELEMENTDOFS(ELEMENTDOFS,GLOBALDOFS,NX,NY)
           CALL INTERPMAT(NX,NBDOFS,AX,BX,AY,BY,SMAT,TMAT)
@@ -46,6 +53,12 @@ C boundary DOFs. This makes static condensation much easier
      & TEMPERATURE,GLOBALDOFS,NDOFS)
           ENDIF
           
+C Custom temperature field = triblock + frac*linear 
+C          CALL TRIBLOCKTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
+C     & TNL,GLOBALDOFS,NDOFS)
+C          CALL LINEARTEMP(AX,BX,AY,BY,TTOP,-TBOTTOM,NX,NY,
+C     & TL,GLOBALDOFS,NDOFS) !Tbot to set to -Tbot
+C          TEMPERATURE = 0.5D0*TNL + TL
 
 C Enumerate boundary and internal DOFs
           BDOFS(1:2*(NX+1)) = (/(I,I=1,2*(NX+1))/)
@@ -58,7 +71,12 @@ C Enumerate boundary and internal DOFs
 C From VB, get UB (UB=S*VB)
           UB = MATMUL(SMAT,VB)
 C From UB, get UI and reconstruct U
-          UI = MATMUL(INVKII,FI-MATMUL(KIB,UB))
+c          FI2 = MATMUL(INVKII,FI-MATMUL(KIB,UB))
+          UI = FI-MATMUL(KIB,UB)
+
+          IF(TSTEP .NE. 1) THEN
+          CALL multInv(NIDOFS, NBAND-1, INVKII,NBAND,UI,NIDOFS,1)
+          END IF
 
           DO I=1,NBDOFS
               U(BDOFS(I)) = UB(I)
@@ -68,12 +86,12 @@ C From UB, get UI and reconstruct U
               U(IDOFS(I)) = UI(I)
           END DO
           
-          WRITE(FDISPI,'(I5,*(E15.6))') TSTEP-1,U(:)
+          WRITE(FDISPI,'(I5,100(E15.6))') TSTEP-1,U(:)
 
 C The next set of nested loops assembles the global stiffness matrix 
 C of the element (NOT of the overall problem, which the main program
 C takes care of)
-          KGLOBAL = 0.0D0
+          KGLOBALB = 0.0D0
           FGLOBAL = 0.0D0
           YMID = (AY+BY)*0.5
           DO I=1,NX
@@ -99,11 +117,8 @@ C Elastic elements
      & KELASTIC,YOUNG,POISSON,THICK,FULLINT,ISOTROPIC)
                     CALL FTHERMALELASTIC(AXL,BXL,AYL,BYL,THICK,YOUNG,
      & POISSON,ALPHAX,ALPHAY,TELEMENT,FLOCAL,ISOTROPIC)
-                      CALL ASSEMBLEGLOBAL(KGLOBAL,KELASTIC,FGLOBAL,
-     & FLOCAL,NDOFS,LOCALDOFS)
-      
-C      PRINT*, 'FLOCAL: '
-C      PRINT '(I5,E12.4)', (LOCALDOFS(II),FLOCAL(II),II=1,8)
+                      CALL ASSEMBLEGLOBALB(KGLOBALB,KELASTIC,FGLOBAL,
+     & FLOCAL,NDOFS,NBAND,LOCALDOFS)
                   ELSE
 C Cohesive elements
                       LOCALDOFS(:) = ELEMENTDOFS(I,J,:)
@@ -143,20 +158,23 @@ C Bilinear initial stiffness = 10^11, no need to increase it further
                       END SELECT
                       T_d(I,:,:,:) = T_de(:,:,:)
                       FLOCAL = 0.0D0
-                      CALL ASSEMBLEGLOBAL(KGLOBAL,KCOH,FGLOBAL,FLOCAL,
-     & NDOFS,LOCALDOFS)
+                      CALL ASSEMBLEGLOBALB(KGLOBALB,KCOH,FGLOBAL,FLOCAL,
+     & NDOFS,NBAND,LOCALDOFS)
                   END IF
               END DO
           END DO
           
-          WRITE(FFORCEI,'(I5,*(E15.6))') TSTEP,FGLOBAL(:)
+          WRITE(FFORCEI,'(I5,100(E15.6))') TSTEP,FGLOBAL(:)
 
 C Static condensation - get KBBTILDE, INVKII, KIB
-          CALL CONDENSEDMAT(KGLOBAL,FGLOBAL,KBBTILDE,INVKII,KIB,FI,
-     & FBTILDE,BDOFS,IDOFS,NDOFS,NBDOFS,NIDOFS)
-      
+
+        CALL CONDENSEDMATB(KGLOBALB,FGLOBAL,KBBTILDE,INVKII,KIB,FI,
+     & FBTILDE,BDOFS,IDOFS,NDOFS,nband,NBDOFS,NIDOFS)
+
 C Translate KBBTILDE to KBEAM
           KBEAM = MATMUL(TMAT,MATMUL(KBBTILDE,SMAT))
           FBEAM = MATMUL(TMAT,FBTILDE)
+
+c 	DEALLOCATE(KGLOBALB)
       
       END SUBROUTINE CRACKELEMENTX

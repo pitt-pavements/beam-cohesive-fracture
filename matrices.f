@@ -1,6 +1,6 @@
       SUBROUTINE INTERPMAT(NX,NBDOFS,AX,BX,AY,BY,SMAT,TMAT)
           
-          USE MATRIXFUNCTIONS
+c          USE MATRIXFUNCTIONS
           INCLUDE 'ABA_PARAM.INC'
           
           INTEGER :: NX,NBDOFS
@@ -263,6 +263,7 @@ c Assemble local stiffness matrix KLOCAL consisting of DOFs
 c specified in ELEMENTDOFs into the global matrix KGLOBAL
 c KLOCAL is always (8,8) while KGLOBAL is (NDOFS,NDOFS)
 c NDOFs is total # of DOFs of the system
+c This subroutine assembles the full matrix
           INTEGER :: NDOFS, ELEMENTDOFS(8)
           DOUBLE PRECISION :: KGLOBAL(NDOFS,NDOFS), KLOCAL(8,8),
      & FGLOBAL(NDOFS), FLOCAL(8)
@@ -277,6 +278,34 @@ c NDOFs is total # of DOFs of the system
           END DO
           RETURN
       END SUBROUTINE ASSEMBLEGLOBAL
+
+      SUBROUTINE ASSEMBLEGLOBALB(KGLOBALB,KLOCAL,FGLOBAL,FLOCAL,
+     & NDOFS,NBAND,ELEMENTDOFS)
+c Assemble local stiffness matrix KLOCAL consisting of DOFs
+c specified in ELEMENTDOFs into the global matrix KGLOBAL
+c KLOCAL is always (8,8) while KGLOBALB is (NBAND,NDOFS)
+c NDOFs is total # of DOFs of the system
+c Thus subroutine assembles a banded matrix
+          INTEGER :: NDOFS, ELEMENTDOFS(8)
+          DOUBLE PRECISION :: KGLOBALB(NBAND,NDOFS), KLOCAL(8,8),
+     & FGLOBAL(NDOFS), FLOCAL(8)
+          
+          DO I=1,8
+              FGLOBAL(ELEMENTDOFS(I)) = FGLOBAL(ELEMENTDOFS(I))+
+     & FLOCAL(I)
+	        I1 = ELEMENTDOFS(I)
+              DO J=1,8
+                   J1 = ELEMENTDOFS(J)
+				           JB1 =I1 - J1 +1
+
+				           if (JB1>0)  then
+              KGLOBALB(JB1,J1)= KGLOBALB(JB1,j1)+KLOCAL(I,J)
+                   end if
+              END DO
+          END DO
+          RETURN
+      END SUBROUTINE ASSEMBLEGLOBALB
+
       
             SUBROUTINE STIFFNESSMATCOHESIVE(PROPS,AMATRX,COORDS,
      & KSTEP,U,T_d,NDOFEL,MODELTYPE)
@@ -336,76 +365,6 @@ C and stiffness are calculated
           RETURN
           
       END SUBROUTINE STIFFNESSMATCOHESIVE
-      
-      SUBROUTINE CONDENSEDMAT(K,F,KBBTILDE,INVKII,KIB,FI,FBTILDE,
-     & BDOFS,IDOFS,NDOFS,NBDOFS,NIDOFS)
-C Code for static condensation of the global stiffness mat K
-C The problem Ku=f is partitioned as  [Kbb Kbi;Kib Kii](ub;ui)=(fb;fi)
-C The condensed stiffness matrix is Kbbtilde = Kbb-Kbi*Kii^(-1)*Kib
-C The condensed force vector is fbtilde = fb-Kbi*Kii^(-1)*fi
-C The subroutine also stores Kii^(-1), fi and Kib because they are needed
-C to calculate ui = Kii^(-1)*(fi-Kib*ub)
-C IDOFS - list of internal DOFs to be condensed out
-C BDOFS - list of boundary DOFs
-          
-          USE MATRIXFUNCTIONS    
-          INCLUDE 'ABA_PARAM.INC'
-      
-          INTEGER :: NDOFS, NBDOFS, NIDOFS
-          INTEGER :: BDOFS(NBDOFS), IDOFS(NIDOFS)
-          DOUBLE PRECISION :: K(NDOFS,NDOFS), KBBTILDE(NBDOFS,NBDOFS), 
-     & KIB(NIDOFS,NBDOFS), INVKII(NIDOFS,NIDOFS), FI(NIDOFS), 
-     & FB(NBDOFS), FBTILDE(NBDOFS), F(NDOFS)
-          DOUBLE PRECISION :: KBB(NBDOFS,NBDOFS), KBI(NBDOFS,NIDOFS),
-     & KII(NIDOFS,NIDOFS)
-      
-          KBB = 0.0D0
-          KBI = 0.0D0
-          KIB = 0.0D0
-          KII = 0.0D0
-          KBBTILDE = 0.0D0
-          FI = 0.0D0
-          FB = 0.0D0
-
-C Partition K into Kbb,Kbi,Kib,Kii, and F into Fi,Fb
-          DO I=1,NBDOFS
-              FB(I)=F(BDOFS(I))
-          END DO
-          
-          DO I=1,NIDOFS
-              FI(I)=F(IDOFS(I))
-          END DO
-          
-          DO I=1,NBDOFS
-              DO J=1,NBDOFS
-                  KBB(I,J)=K(BDOFS(I),BDOFS(J))
-              END DO
-          END DO
-          
-          DO I=1,NBDOFS
-              DO J=1,NIDOFS
-                  KBI(I,J)=K(BDOFS(I),IDOFS(J))
-              END DO
-          END DO
-          
-          DO I=1,NIDOFS
-              DO J=1,NBDOFS
-                  KIB(I,J)=K(IDOFS(I),BDOFS(J))
-              END DO
-          END DO
-          
-          DO I=1,NIDOFS
-              DO J=1,NIDOFS
-                  KII(I,J)=K(IDOFS(I),IDOFS(J))
-              END DO
-          END DO
-          
-          INVKII = INVERSEMAT(KII,NIDOFS)
-          KBBTILDE = KBB-MATMUL(KBI,MATMUL(INVKII,KIB))
-          FBTILDE = FB-MATMUL(KBI,MATMUL(INVKII,FI))
-      
-          RETURN
-      END SUBROUTINE CONDENSEDMAT
       
       SUBROUTINE LINEARTEMP(AX,BX,AY,BY,TTOP,TBOTTOM,NX,NY,
      & TEMPERATURE,GLOBALDOFS,NDOFS)
@@ -567,7 +526,7 @@ C Temperature = TTOP
           DOUBLE PRECISION :: AX,BX,AY,BY,THICK,YOUNG,ALPHAX,
      & ALPHAY,TREF,TTOP,TMID,TBOTTOM
           DOUBLE PRECISION :: FBEAM(6)
-          DOUBLE PRECISION :: A,IZ,P,M,LX,LY
+          DOUBLE PRECISION :: A,IZ,P,M,LX,LY,PL,PNL,ML,MNL
           
           LY = BX-AX
           LX = BY-AY
@@ -596,6 +555,17 @@ C Derived from Khazanovich (1994) Eq. 7.32
 C Derived from Khazanovich (1994) Eq. 7.33
             M = YOUNG*IZ*ALPHAY*(9.0D0/8.0D0)*(TTOP-TBOTTOM)/LY
           END IF
+C Custom temperature field = triblock + frac*linear 
+
+C Linear component, Tbot is set to -Tbot
+C        PL = 0.5*(TTOP-TBOTTOM-2.0D0*TREF)*YOUNG*A*ALPHAY
+C        ML = YOUNG*IZ*ALPHAY*(TTOP+TBOTTOM)/LY
+C Non-linear component
+C        PNL = (((TTOP+TBOTTOM+2.0D0*TMID)/4.0D0)-TREF)*YOUNG*A*ALPHAY
+C        MNL = YOUNG*IZ*ALPHAY*(9.0D0/8.0D0)*(TTOP-TBOTTOM)/LY
+
+C            P = 0.5D0*PNL + PL
+C            M = 0.5D0*MNL + ML
           
           FBEAM(1) = 0.0D0
           FBEAM(2) = -P
@@ -730,3 +700,119 @@ C TELEMENT(1)----------------TELEMENT(3)
           CLOSE(20)
           
       END SUBROUTINE WRITEINTERNALMESH
+
+      SUBROUTINE CONDENSEDMATB(Kband,F,KBBTILDE,KII2,KIB,FI,FBTILDE,
+     & BDOFS,IDOFS,NDOFS,NBAND,NBDOFS,NIDOFS)
+C Code for static condensation of the global stiffness mat K
+C This subroutine runs on a banded matrix
+C The problem Ku=f is partitioned as  [Kbb Kbi;Kib Kii](ub;ui)=(fb;fi)
+C The condensed stiffness matrix is Kbbtilde = Kbb-Kbi*Kii^(-1)*Kib
+C The condensed force vector is fbtilde = fb-Kbi*Kii^(-1)*fi
+C The subroutine also stores Kii^(-1), fi and Kib because they are needed
+C to calculate ui = Kii^(-1)*(fi-Kib*ub)
+C IDOFS - list of internal DOFs to be condensed out
+C BDOFS - list of boundary DOFs
+          
+c          USE MATRIXFUNCTIONS    
+          INCLUDE 'ABA_PARAM.INC'
+      
+          INTEGER :: NDOFS, NBDOFS, NIDOFS
+          INTEGER :: BDOFS(NBDOFS), IDOFS(NIDOFS)
+       DOUBLE PRECISION :: KBand(Nband,NDOFS),KBBTILDE(NBDOFS,NBDOFS), 
+     & KIB(NIDOFS,NBDOFS), KII2(NBAND,NIDOFS), FI(NIDOFS), 
+     & FB(NBDOFS), FBTILDE(NBDOFS), F(NDOFS)
+          DOUBLE PRECISION, ALLOCATABLE :: KBB(:,:), KBI(:,:),
+     &  FI2(:),KIB2(:,:) 
+        ALLOCATE(KBB(NBDOFS,NBDOFS), KBI(NBDOFS,NIDOFS),
+     & FI2(NIDOFS),KIB2(NIDOFS,NBDOFS))
+          
+          KBB = 0.0D0
+          KBI = 0.0D0
+          KIB = 0.0D0
+
+		      KII2(1:NBAND,1:NIDOFS)=0.0D0
+          KBBTILDE = 0.0D0
+          FI = 0.0D0
+          FB = 0.0D0
+
+C Partition K into Kbb,Kbi,Kib,Kii, and F into Fi,Fb
+          DO I=1,NBDOFS
+              FB(I)=F(BDOFS(I))
+          END DO
+          
+          DO I=1,NIDOFS
+              FI(I)=F(IDOFS(I))
+          END DO
+          
+          DO I=1,NBDOFS
+              DO J=1,I
+                  I1=BDOFS(I)
+				  J1=BDOFS(J)
+                  if (I1.GE.J1) then
+				   I2 = I1-J1+1
+				 else
+				   I2 = J1-I1+1
+				 end if  
+	            if (i2.LE.nband) then
+                  KBB(I,J)=Kband(i2,j1)
+	            KBB(J,I)=Kband(i2,j1)
+				 else
+                  KBB(I,J)=0.
+	            KBB(J,I)=0.
+                  end if
+              END DO
+          END DO
+          
+          DO I=1,NBDOFS
+              DO J=1,NIDOFS
+				  I1=BDOFS(I)
+                  J1=IDOFS(J)
+                  if (I1.GE.J1) then
+				   I2 = I1-J1+1
+                  if (i2.LE.nband) KBI(I,J)=Kband(i2,j1)
+	                else
+                      j2=j1-i1+1
+				  if (j2.LE.nband)  KBI(I,J)=Kband(j2,i1)
+                  end if
+              END DO
+          END DO
+          
+          DO I=1,NIDOFS
+              DO J=1,NBDOFS
+                  i1 = IDOFS(I)
+				  j1 = BDOFS(j)
+                  if (I1.GE.J1) then
+				   I2 = I1-J1+1
+					if (i2.LE.nband) KiB(I,J)=Kband(i2,j1)
+	            else
+                      j2=j1-i1+1
+					if (j2.LE.nband) 	KiB(I,J)=Kband(j2,i1)
+                  end if
+
+              END DO
+          END DO
+          
+		   Do j=1,NIDOFS
+	        Do i=1,nband
+	     if (i+IDOFS(j)-1.LE.IDOFS(NIDOFS)) 
+     &     KII2(i,j)=Kband(i,IDOFS(j))
+	       
+          end do
+		   end do
+
+
+          CALL DPBTF2( 'L', NIDOFS,NBAND-1, KII2, NBAND, INFO )
+
+          FI2(1:NIDOFS)=FI(1:NIDOFS)
+	        CALL multInv(NIDOFS, NBAND-1, KII2,NBAND,FI2,NIDOFS,1)
+          FBTILDE = FB - MATMUL(KBI,FI2) 
+
+          KIB2=KIB
+	        CALL multInv(NIDOFS,NBAND-1,KII2,NBAND,KIB2,NIDOFS,NBDOFS)
+           
+	    
+	    KBBTILDE = KBB-MATMUL(KBI,KIB2)
+
+		   DeAllocate(KBB, KBI,FI2,KIB2 )      
+          RETURN
+      END SUBROUTINE CONDENSEDMATB

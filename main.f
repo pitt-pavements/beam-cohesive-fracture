@@ -1,10 +1,11 @@
       PROGRAM MAIN
-          USE MATRIXFUNCTIONS
+c          USE MATRIXFUNCTIONS
           INCLUDE 'ABA_PARAM.INC' 
           
           INTEGER :: NELEM=5,NIX,NIY,DBCOH,NDOFS,NCOMPDOFS,
      & NBCOMPDOFS,NICOMPDOFS,FSEP=11,FDISPB=12,FDISPI=13,
-     & FFORCEB=14,FFORCEI=15,TSTEP,NSTEPS,MODELTYPE,TTYPE
+     & FFORCEB=14,FFORCEI=15,TSTEP,NSTEPS,MODELTYPE,TTYPE,
+     & nband, nband0
           INTEGER :: LOCALDOFS(6)
           INTEGER, ALLOCATABLE :: ELEMENTDOFS(:,:),
      & ELEMENTTYPE(:)
@@ -14,8 +15,8 @@
      & TMID(5)
           DOUBLE PRECISION :: PROPS(9),KCOMPBEAM(6,6),KBEAM(6,6),
      & FBEAM(6),FCOMPBEAM(6)
-          DOUBLE PRECISION, ALLOCATABLE :: KGLOBAL(:,:),INVKII(:,:,:),
-     & INVKIIE(:,:),KIB(:,:,:),KIBE(:,:)
+          DOUBLE PRECISION, ALLOCATABLE :: KGLOBAL(:,:),
+     & KIB(:,:,:),KIBE(:,:)
           CHARACTER(LEN=200) :: FINPUT,FOUTPUT
           LOGICAL :: FULLINT
           
@@ -27,9 +28,11 @@
           DOUBLE PRECISION :: UB(6),UKNOWN(100),FKNOWN(100),
      & DAMPING(100), PRELOAD(100), PRELOADFRAC(100)
           DOUBLE PRECISION, ALLOCATABLE :: UFREE(:),U(:),
-     & DUFREE(:),KFF(:,:),KFK(:,:),UI(:,:),UIE(:),
+     & DUFREE(:),KFK(:,:),UI(:,:),UIE(:),
      & T_d(:,:,:,:),FGLOBALINT(:),FK(:),FF(:),FI(:,:),
      & FIE(:),FGLOBALEXT(:),FGLOBALTOT(:)    
+	     DOUBLE PRECISION, ALLOCATABLE ::KGLOBALB(:,:),
+     &    INVKII(:,:,:), KFF(:,:)
 
           ALLOCATE(ELEMENTTYPE(NELEM))
           CALL GETARG(1,FINPUT)
@@ -46,22 +49,27 @@
           NBCOMPDOFS = 4*(NIX+1)
           NICOMPDOFS = NCOMPDOFS-NBCOMPDOFS
           NFREE = NDOFS-NCONSTRAINED-NUKNOWN
+		nband = (NIX+1)*2 +2 *2
+		nband0=6
+          ALLOCATE(KGLOBALB(NBAND,NCOMPDOFS),
+     & INVKII( nband,NICOMPDOFS,NELEM), KFF(nband0,NFREE))
+     
           
           ALLOCATE(ELEMENTDOFS(NELEM,6),
      & KGLOBAL(NDOFS,NDOFS),U(NDOFS),UI(NELEM,NICOMPDOFS),
-     & UIE(NICOMPDOFS),INVKII(NELEM,NICOMPDOFS,NICOMPDOFS),
-     & INVKIIE(NICOMPDOFS,NICOMPDOFS),KIB(NELEM,NICOMPDOFS,NBCOMPDOFS),
-     & KIBE(NICOMPDOFS,NBCOMPDOFS),T_d(NIX,2,2,2),FIE(NICOMPDOFS),
+     & UIE(NICOMPDOFS), KIB(NICOMPDOFS,NBCOMPDOFS,NELEM),
+     & T_d(NIX,2,2,2),FIE(NICOMPDOFS),
      & FI(NELEM,NICOMPDOFS))
-      
+
           DO I=1,NELEM
             ELEMENTDOFS(I,1:6) = (/(J,J=3*I-2,3*I+3)/)
           END DO
 
 
           ALLOCATE(FREEDOFS(NFREE),UFREE(NFREE),DUFREE(NFREE),
-     & KFF(NFREE,NFREE),KFK(NFREE,NUKNOWN),FGLOBALINT(NDOFS),
+     & KFK(NFREE,NUKNOWN),FGLOBALINT(NDOFS),
      & FK(NUKNOWN),FF(NFREE),FGLOBALEXT(NDOFS),FGLOBALTOT(NDOFS))
+
           II = 1
           DO I=1,NDOFS
             IF(ALL(CONSTRAINTS(1:NCONSTRAINED) .NE. I) .AND. 
@@ -79,10 +87,8 @@
           FBEAM = 0.0D0
           KBEAM = 0.0D0
           KCOMPBEAM = 0.0D0
-          INVKII = 0.0D0
-          INVKIIE = 0.0D0
+
           KIB = 0.0D0
-          KIBE = 0.0D0
           FI = 0.0D0
           FIE = 0.0D0
           T_d = 0.0D0
@@ -112,17 +118,17 @@ C Composite
                   DO II=1,6
                       UB(II) = U(LOCALDOFS(II))
                   END DO
-                  INVKIIE(:,:) = INVKII(I,:,:)
-                  KIBE(:,:) = KIB(I,:,:)
                   FIE(:) = FI(I,:)
-                  CALL CRACKELEMENTX(UB,AX(I),BX(I),AY(I),BY(I),
-     & THICK,YOUNG(I),POISSON(I),TREF*TSTEP/NSTEPS,TTYPE,
-     & TTOP(I)*TSTEP/NSTEPS,TMID(I)*TSTEP/NSTEPS,
-     & TBOTTOM(I)*TSTEP/NSTEPS,ALPHAX(I),ALPHAY(I),PROPS,TSTEP,INVKIIE,
-     & KIBE,KCOMPBEAM,FIE,FCOMPBEAM,T_d,NIX,NIY,NCOMPDOFS,NBCOMPDOFS,
-     & NICOMPDOFS,FULLINT,FSEP,FDISPI,FFORCEI,MODELTYPE,DBCOH)
-                    KIB(I,:,:) = KIBE(:,:)
-                    INVKII(I,:,:) = INVKIIE(:,:)
+
+                  CALL CRACKELEMENTX(
+     &  AX(I),BX(I),AY(I),BY(I),THICK,YOUNG(I),POISSON(I),
+     &  TREF*TSTEP/NSTEPS,TTYPE,TTOP(I)*TSTEP/NSTEPS,
+     & TMID(I)*TSTEP/NSTEPS,TBOTTOM(I)*TSTEP/NSTEPS,
+     & ALPHAX(I),ALPHAY(I),UB,PROPS,TSTEP,KCOMPBEAM,FCOMPBEAM,          
+     &  KIB(1,1,I),FIE,T_d,NIX,NIY,NCOMPDOFS,NBCOMPDOFS,
+     & NICOMPDOFS,FULLINT,FSEP,FDISPI,FFORCEI,MODELTYPE,DBCOH,
+     & INVKII(1,1,I),nband,KGLOBALB)
+
                     FI(I,:) = FIE(:)
                     CALL ASSEMBLEBEAM(KGLOBAL,KCOMPBEAM,FGLOBALINT,
      & FCOMPBEAM,NDOFS,LOCALDOFS)  
@@ -153,11 +159,14 @@ C Matrix partitoning
                 END DO
             END DO
 
-            DO I=1,NFREE
-                DO J=1,NFREE
-                      KFF(I,J)=KGLOBAL(FREEDOFS(I),FREEDOFS(J))
+            DO J=1,NFREE
+               DO I=0,nband0-1
+	                if (I+J .LE. NFREE) THEN
+                      KFF(I+1,J)=KGLOBAL(FREEDOFS(I+J),FREEDOFS(J))
+                     end if
                 END DO
             END DO
+
             
 C Add pre-loading
             DO I=1,NPRELOAD
@@ -183,9 +192,12 @@ C Partition force vector
             END DO
             
 C Solve
-            UFREE(1:NFREE) = MATMUL(INVERSEMAT(KFF(1:NFREE,1:NFREE),
-     & NFREE),FF(1:NFREE)-MATMUL(KFK(1:NFREE,1:NUKNOWN),
-     & UKNOWN(1:NUKNOWN)*TSTEP/NSTEPS))
+
+	     FF(1:NFREE) = FF(1:NFREE)-MATMUL(KFK(1:NFREE,1:NUKNOWN),
+     & UKNOWN(1:NUKNOWN)*TSTEP/NSTEPS)
+          CALL DPBTF2( 'L', NFREE,NBAND0-1, KFF, NBAND0, INFO)
+	     CALL multInv(NFREE, NBAND0-1, KFF,NBAND0,FF,NFREE,1)
+      UFREE(1:NFREE) = FF(1:NFREE) 
             
 C Recover full solution
             DO I=1,NUKNOWN
@@ -198,8 +210,8 @@ C Recover full solution
             
             FGLOBALEXT = MATMUL(KGLOBAL,U)-FGLOBALINT
             
-            WRITE(FDISPB,'(I5,*(E15.6))') TSTEP,U
-            WRITE(FFORCEB,'(I5,*(E15.6))') TSTEP,FGLOBALEXT
+            WRITE(FDISPB,'(I5,100(E15.6))') TSTEP,U
+            WRITE(FFORCEB,'(I5,100(E15.6))') TSTEP,FGLOBALEXT
           END DO
           
           CLOSE(FDISPB)
