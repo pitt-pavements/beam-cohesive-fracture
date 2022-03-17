@@ -45,20 +45,20 @@ C Generate temperature fields
           ELSEIF(TTYPE .EQ. 2) THEN !Quadratic temperature
             CALL QUADRATICTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NIX,NIY,
      & TEMPERATURE,GLOBALDOFS,NCOMPDOFS)
-          ELSEIF(TTYPE .EQ. 3) THEN !Trilinear temperature - use 12x6
+          ELSEIF(TTYPE .EQ. 3) THEN !Trilinear temperature
             CALL TRILINEARTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NIX,NIY,
      & TEMPERATURE,GLOBALDOFS,NCOMPDOFS)
-          ELSEIF(TTYPE .EQ. 4) THEN !Triblock temperature - use 10x5
+          ELSEIF(TTYPE .EQ. 4) THEN !Triblock temperature
           CALL TRIBLOCKTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NIX,NIY,
      & TEMPERATURE,GLOBALDOFS,NCOMPDOFS)
           ENDIF
           
 C Custom temperature field = triblock + frac*linear 
-C          CALL TRIBLOCKTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NIX,NIY,
-C    & TNL,GLOBALDOFS,NCOMPDOFS)
-C          CALL LINEARTEMP(AX,BX,AY,BY,TTOP,-TBOTTOM,NIX,NIY,
-C    & TL,GLOBALDOFS,NCOMPDOFS) !Tbot to set to -Tbot
-C          TEMPERATURE = 0.5D0*TNL + TL
+          CALL TRIBLOCKTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NIX,NIY,
+     & TNL,GLOBALDOFS,NCOMPDOFS)
+          CALL LINEARTEMP(AX,BX,AY,BY,TTOP,-TBOTTOM,NIX,NIY,
+     & TL,GLOBALDOFS,NCOMPDOFS) !Tbot to set to -Tbot
+          TEMPERATURE = TNL + 0.0D0*TL
 
 C Enumerate boundary and internal DOFs
           BDOFS(1:2*(NIX+1)) = (/(I,I=1,2*(NIX+1))/)

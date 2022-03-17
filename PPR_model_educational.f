@@ -72,6 +72,7 @@ c      PROPS(6): Tangential shape parameter (beta)
 c      PROPS(7): Normal initial slope indicator (ln)
 c      PROPS(8): Tangential initial slope indicator (lt)
 c      PROPS(9): Thickness of a cohesive element
+c      PROPS(10): Psi parameter for Bilinear model
 c   MCRD  : Largest active degrees of freedom
 c   NNODE : Number of nodes
 c
@@ -95,7 +96,7 @@ c   GP  : Gauss points
 c   GP_W: Weight at the Gauss points
 c   n_GP: Number of the Gauss points
        DOUBLE PRECISION Gn, Gt, Tn_m, Tt_m, alph, beta, ln, lt, th,
-     & dn, dt, m, n, Gam_n, Gam_t, dGnt, dGtn,
+     & dn, dt, m, n, Gam_n, Gam_t, dGnt, dGtn, psi,
      & N1, N2, del1, del2, del3, del4, deln_max, delt_max, el_length,
      & ratioMin,T_nmin,ratio,ratio2
 c   Gn, Gt: Fracture energies
@@ -123,6 +124,7 @@ c Read input data & Initialize
        ln   = PROPS(7)
        lt   = PROPS(8)
        th   = PROPS(9)
+       psi  = PROPS(10)
        n_GP = 2
        ratioMin = 0.95D0
        T_nmin = 1.0D-10
@@ -183,8 +185,8 @@ c Numerical integration to compute RHS and AMATRX
           call k_Cohesive_PPR (T, T_dnode, Gam_n, Gam_t, alph, beta, 
      &  m, n, dn, dt, dGtn, dGnt, del, deln_max, delt_max)
           ELSE
-              call k_Bilinear_Coh(T,T_dnode,Gn,Gt,Tn_m,Tt_m,
-     & dn, dt, del)
+          call k_Bilinear_Coh (T,T_dnode,Gn,Gt,Tn_m,Tt_m,
+     &  dn, dt, del, psi)
           END IF
 
 C Secant matrix implementation
@@ -273,8 +275,8 @@ C Evaluate and print cohesive stresses at nodes
          call k_Cohesive_PPR (T, T_dnode, Gam_n, Gam_t, alph, beta, 
      &  m, n, dn, dt, dGtn, dGnt, del, deln_max, delt_max)
          ELSE
-            call k_Bilinear_Coh(T,T_dnode,Gn,Gt,Tn_m,Tt_m,
-     & dn, dt, del)
+         call k_Bilinear_Coh (T, T_dnode,Gn,Gt,Tn_m,Tt_m,
+     & dn, dt, del, psi)
       END IF
       WRITE(80,*) KSTEP,1,T(2,1)
 
@@ -284,8 +286,8 @@ C Evaluate and print cohesive stresses at nodes
          call k_Cohesive_PPR (T, T_dnode, Gam_n, Gam_t, alph, beta, 
      &  m, n, dn, dt, dGtn, dGnt, del, deln_max, delt_max)
          ELSE
-            call k_Bilinear_Coh(T,T_dnode,Gn,Gt,Tn_m,Tt_m,
-     & dn, dt, del)
+         call k_Bilinear_Coh (T,T_dnode,Gn,Gt,Tn_m,Tt_m,
+     & dn, dt, del, psi)
       END IF
       WRITE(80,*) KSTEP,2,T(2,1)
 
@@ -512,16 +514,16 @@ c =====================================================================
 c ======Bilinear model=================================================
 
       SUBROUTINE k_Bilinear_Coh(T,T_d,Gn,Gt,Tn_m,Tt_m,
-     & dn, dt, del)
-          INCLUDE 'ABA_PARAM.INC'
-       DIMENSION T(2,1), T_d(2,2), del(2), T_dp(2,1)
-       DOUBLE PRECISION Gn, Gt, Tn_m, Tt_m, dn, dt
-       DOUBLE PRECISION  delt, deln, psi, dn1, dncr
+     & dn, dt, del, psi)
+
+       DOUBLE PRECISION :: T(2,1), T_d(2,2), del(2), T_dp(2,1)
+       DOUBLE PRECISION Gn, Gt, Tn_m, Tt_m, dn, dt, 
+     & psi
+       DOUBLE PRECISION  delt, deln, dn1, dncr
        delt = abs(del(1))
        deln = del(2)
        T_dp(1,1) = 1.0D11 !Penalty stiffness
        T_dp(2,1) = 1.0D11 !Penalty stiffness
-       psi = 0.25 !Psi parameter
        dn1 = ((2*Gn/Tn_m)-psi*dn)/(1-psi) !w1 parameter
        dncr = Tn_m/T_dp(2,1)
        

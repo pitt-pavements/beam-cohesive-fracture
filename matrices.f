@@ -316,13 +316,14 @@ C are stores in COORDS, corresponding displacements in U
 C NDOFEL is # of DOFs of the element, always 8
 C FGPSEP, FGPTRAC - unit handles for writing separation and traction to files
 C KSTEP - time step, not used by the model but only for controlling writing
+          
           INCLUDE 'ABA_PARAM.INC'
           
           INTEGER :: NDOFEL,KSTEP,MODELTYPE
           INTEGER :: NRHS=1, MCRD=2, NNODE=4, MLVARX=8, NPREDF=8,
      & MDLOAD=8
           DOUBLE PRECISION :: AMATRX(NDOFEL,NDOFEL), COORDS(2,4),
-     & U(NDOFEL), PROPS(9), T_d(2,2,2)
+     & U(NDOFEL), T_d(2,2,2)
           
 C The next two allocate statements are to create an interface with UEL
 C Most of the inputs are never used
@@ -558,14 +559,14 @@ C Derived from Khazanovich (1994) Eq. 7.33
 C Custom temperature field = triblock + frac*linear 
 
 C Linear component, Tbot is set to -Tbot
-C        PL = 0.5*(TTOP-TBOTTOM-2.0D0*TREF)*YOUNG*A*ALPHAY
-C        ML = YOUNG*IZ*ALPHAY*(TTOP+TBOTTOM)/LY
+        PL = 0.5*(TTOP-TBOTTOM-2.0D0*TREF)*YOUNG*A*ALPHAY
+        ML = YOUNG*IZ*ALPHAY*(TTOP+TBOTTOM)/LY
 C Non-linear component
-C        PNL = (((TTOP+TBOTTOM+2.0D0*TMID)/4.0D0)-TREF)*YOUNG*A*ALPHAY
-C        MNL = YOUNG*IZ*ALPHAY*(9.0D0/8.0D0)*(TTOP-TBOTTOM)/LY
+        PNL = (((TTOP+TBOTTOM+2.0D0*TMID)/4.0D0)-TREF)*YOUNG*A*ALPHAY
+        MNL = YOUNG*IZ*ALPHAY*(9.0D0/8.0D0)*(TTOP-TBOTTOM)/LY
 
-C            P = 0.5D0*PNL + PL
-C            M = 0.5D0*MNL + ML
+            P = PNL + 0.0D0*PL
+            M = MNL + 0.0D0*ML
           
           FBEAM(1) = 0.0D0
           FBEAM(2) = -P
