@@ -1,90 +1,3 @@
-c      MODULE MATRIXFUNCTIONS
-c          CONTAINS
-          
-C          FUNCTION INVERSEMAT(AIN,N) RESULT(C)
-C              
-C              !DOLITLLTE LU METHOD
-C             !https://ww2.odu.edu/~agodunov/computing/programs/book2/Ch06/Inverse.f90
-C              INCLUDE 'ABA_PARAM.INC'
-C              
-C              INTEGER, INTENT(IN) :: N
-C              DOUBLE PRECISION, INTENT(IN) :: AIN(N,N)
-C              DOUBLE PRECISION :: A(N,N), C(N,N), L(N,N), U(N,N), B(N), 
-C     & D(N), X(N)
-C              DOUBLE PRECISION :: COEFF
-C              
-C              !INITIALIZATION
-C              A=AIN
-C              L=0.0
-C              U=0.0
-C              B=0.0
-C              
-              !STEP 1
-C              DO K=1,N-1
-C                  DO I=K+1,N
-C                      COEFF=A(I,K)/A(K,K)
-C                      L(I,K)=COEFF
-C                      DO J=K+1,N
-C                          A(I,J)=A(I,J)-COEFF*A(K,J)
-C                      END DO
-C                  END DO
-C              END DO
-              
-              !STEP 2
-C              DO I=1,N
-C                  L(I,I)=1.0
-C              END DO
-              
-C              DO J=1,N
-C                  DO I=1,J
-C                      U(I,J)=A(I,J)
-C                  END DO
-C              END DO
-              
-              !STEP 3
-C              DO K=1,N
-C                  B(K)=1.0
-C                  D(1)=B(1)
-                  
-                  !STEP 3A: SOLVE LD=B
-C                  DO I=2,N
-C                      D(I)=B(I)
-C                      DO J=1,I-1
-C                          D(I)=D(I)-L(I,J)*D(J)
-C                      END DO
-C                  END DO
-                  
-                  !STEP 3B: SOLVE UX=D
-C                  X(N)=D(N)/U(N,N)
-C                  DO I=N-1,1,-1
-C                      X(I)=D(I)
-C                      DO J=N,I+1,-1
-C                          X(I)=X(I)-U(I,J)*X(J)
-C                      END DO
-C                      X(I)=X(I)/U(I,I)
-C                  END DO
-                  
-                  !STEP 3C: FILL IN SOLUTION INTO C
-C                  DO I=1,N
-C                      C(I,K)=X(I)
-C                  END DO
-C                  B(K)=0.0
-C              END DO
-              
-C          END FUNCTION INVERSEMAT
-          
-C          FUNCTION DIRACDELTA(X) RESULT(Y)
-C              DOUBLE PRECISION, INTENT(IN) :: X
-C              DOUBLE PRECISION :: Y
-              
-C              IF(X .EQ. 0.0D0) THEN
-C                  Y = 1.0D0
-C              ELSE
-C                  Y = 0.0D0
-C              END IF
-C          END FUNCTION DIRACDELTA
-          
-c      END MODULE MATRIXFUNCTIONS
       MODULE CRACKELEMENTX_MEMBERS
         INTEGER :: NIX,NIY,NCOMPDOFS,NBCOMPDOFS,NICOMPDOFS,NBAND,
      & MODELTYPE,DBCOH
@@ -95,23 +8,24 @@ c      END MODULE MATRIXFUNCTIONS
       END MODULE CRACKELEMENTX_MEMBERS
       
       SUBROUTINE READINPUT(NSTEPS,NELEM,NIX,NIY,DBCOH,ELEMENTTYPE,
-     & AX,BX,AY,BY,THICK,PROPS,YOUNG,POISSON,ALPHAX,ALPHAY,TREF,TTYPE,
-     & TTOP,TBOTTOM,TMID,NCONSTRAINED,CONSTRAINTS,NUKNOWN,UKNOWNDOFS,
+     & AX,BX,AY,BY,THICK,PROPS,YOUNG,POISSON,ALPHAX,ALPHAY,TREF,
+     & TEMPPT,NCONSTRAINED,CONSTRAINTS,NUKNOWN,UKNOWNDOFS,
      & UKNOWN,NFKNOWN,FKNOWNDOFS,FKNOWN,NDAMPEDDOFS,DAMPEDDOFS,DAMPING,
      & NPRELOAD,PRELOADDOFS,PRELOAD,PRELOADFRAC,MODELTYPE,FULLINT,
      & FINPUT)
           INTEGER :: NSTEPS,NIX,NIY,DBCOH,NCONSTRAINED,
-     & NUKNOWN,NFKNOWN,MODELTYPE,NDAMPEDDOFS,NPRELOAD,TTYPE
+     & NUKNOWN,NFKNOWN,MODELTYPE,NDAMPEDDOFS,NPRELOAD
           INTEGER:: ELEMENTTYPE(NELEM),CONSTRAINTS(100),
      & UKNOWNDOFS(100),FKNOWNDOFS(100),DAMPEDDOFS(100),
      & PRELOADDOFS(100)
           DOUBLE PRECISION :: AX(NELEM),BX(NELEM),AY(NELEM),BY(NELEM),
      & THICK,YOUNG(NELEM),POISSON(NELEM),ALPHAX(NELEM),ALPHAY(NELEM),
-     & UKNOWN(100),FKNOWN(100),TTOP(NELEM),TBOTTOM(NELEM),TMID(NELEM),
+     & UKNOWN(100),FKNOWN(100),TEMPPT(NELEM,101),
      & DAMPING(100),PRELOAD(100),PRELOADFRAC(100)
           DOUBLE PRECISION :: PROPS(*),TREF
           LOGICAL :: FULLINT
           CHARACTER(LEN=200) :: FINPUT
+          INTEGER I
           
           OPEN(11,FILE=FINPUT)
           
@@ -192,37 +106,14 @@ c      END MODULE MATRIXFUNCTIONS
           READ(11,*) (PRELOAD(I),I=1,NPRELOAD)
 
           READ(11,*) (PRELOADFRAC(I),I=1,NPRELOAD)
-
-          READ(11,*) TREF
-
-          READ(11,*) TTYPE
-          
-          IF(TTYPE .EQ. 0) THEN !Constant temperature distribution
-            DO I=1,NELEM
-                READ(11,*) TTOP(I)
-                TBOTTOM(I) = TREF !Fail safe
-                TMID(I) = TREF !Fail safe
-            END DO
-          ELSEIF(TTYPE .EQ. 1) THEN !Linear temperature distribution
-            DO I=1,NELEM
-                READ(11,*) TTOP(I),TBOTTOM(I)
-                TMID(I) = TREF !Fail safe
-            END DO
-          ELSEIF(TTYPE .EQ. 2) THEN !Quadratic temprature distribution
-            DO I=1,NELEM
-                READ(11,*) TTOP(I),TMID(I),TBOTTOM(I)
-            END DO
-          ELSEIF(TTYPE .EQ. 3) THEN !Trilinear temprature distribution
-            DO I=1,NELEM
-                READ(11,*) TTOP(I),TMID(I),TBOTTOM(I)
-            END DO
-          ELSEIF(TTYPE .EQ. 4) THEN !Triblock temprature distribution
-            DO I=1,NELEM
-                READ(11,*) TTOP(I),TMID(I),TBOTTOM(I)
-            END DO
-          END IF
           
           READ(11,*) NIX,NIY
+
+          IF(NIX+1 .GT. 100) THEN
+            PRINT*, 'Too many NIX (max 100), 
+     & please recompile!'
+            CALL EXIT(0)
+          END IF
           
           READ(11,*) PROPS(1),PROPS(2)
           
@@ -239,6 +130,12 @@ c      END MODULE MATRIXFUNCTIONS
           READ(11,*) MODELTYPE 
           
           READ(11,*) DBCOH
+
+          READ(11,*) TREF
+          
+          DO I=1,NELEM
+            READ(11,*) TEMPPT(I,1:NIX+1)
+          END DO
           
           CLOSE(11)
           

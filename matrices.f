@@ -1,6 +1,6 @@
       SUBROUTINE INTERPMAT(NX,NBDOFS,AX,BX,AY,BY,SMAT,TMAT)
           
-          INTEGER :: NX,NBDOFS,I,J
+          INTEGER :: NX,NBDOFS,I
           DOUBLE PRECISION :: AX,BX,AY,BY
           DOUBLE PRECISION :: SMAT(NBDOFS,6),TMAT(6,NBDOFS)
           
@@ -92,8 +92,6 @@ C Transverse and rotation components
 c This subroutine evaluates the plane stress elastic matrix (D)
 c Young = Young's Modulus, Poisson = Poisson ratio
           
-          INTEGER I,J
-          
           DOUBLE PRECISION :: YOUNG, POISSON
           DOUBLE PRECISION :: DMAT(3,3)
           LOGICAL :: ISOTROPIC
@@ -130,7 +128,7 @@ c and the matrix of their derivatives B at point (X,Y) within an element
 c The x-coords of the rectangular elements range from ax to bx
 c and the y-coords range from ay to by
           
-          INTEGER I,J
+          INTEGER I
           
           DOUBLE PRECISION X,Y,AX,AY,BX,BY
           DOUBLE PRECISION :: NMAT(2,8), NN(4), XX(4), YY(4), XX2(4), 
@@ -175,7 +173,6 @@ c The thickness is THICK
         DOUBLE PRECISION :: K(8,8)
         LOGICAL :: FULLINT
         INTEGER :: NGP=2,I,J
-        INTEGER :: CONSTRAINTS(2)
         DOUBLE PRECISION :: DMAT(3,3), NMAT(2,8), BMAT(3,8), GP(2)
         DOUBLE PRECISION :: AREA, JACOBIAN, X, Y
         LOGICAL :: ISOTROPIC
@@ -316,7 +313,7 @@ C KSTEP - time step, not used by the model but only for controlling writing
           
           
           
-          INTEGER :: NDOFEL,KSTEP,MODELTYPE,I,J
+          INTEGER :: NDOFEL,KSTEP,MODELTYPE
           INTEGER :: NRHS=1, MCRD=2, NNODE=4, MLVARX=8, NPREDF=8,
      & MDLOAD=8
           DOUBLE PRECISION :: AMATRX(NDOFEL,NDOFEL), COORDS(2,4),
@@ -364,205 +361,39 @@ C and stiffness are calculated
           
       END SUBROUTINE STIFFNESSMATCOHESIVE
       
-      SUBROUTINE LINEARTEMP(AX,BX,AY,BY,TTOP,TBOTTOM,NX,NY,
+      SUBROUTINE NODETEMP(AX,BX,AY,BY,TEMPPT,NX,NY,
      & TEMPERATURE,GLOBALDOFS,NDOFS)
-C Temperature = TBOTTOM + dT*dx
-          INTEGER :: NDOFS,I,J
-          INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
-          DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TBOTTOM
-          DOUBLE PRECISION :: TEMPERATURE(NDOFS)
-          DOUBLE PRECISION :: DX,DT
-          
-          DT = (TTOP-TBOTTOM)/(BX-AX) !Gradient only parallel to crack in x dir
-          DO I=1,NX+1
-              DO J=1,NY+1
-                DX=(BX-AX)*(I-1)/NX
-                TEMPERATURE(GLOBALDOFS(I,J,1)) = TBOTTOM+DT*DX
-                TEMPERATURE(GLOBALDOFS(I,J,2)) = TBOTTOM+DT*DX
-              END DO
+        INTEGER :: NDOFS,I,J
+        INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
+        DOUBLE PRECISION :: AX,BX,AY,BY
+        DOUBLE PRECISION :: TEMPERATURE(NDOFS),TEMPPT(1,NX+1)
+
+        DO I=1,NX+1
+          DO J=1,NY+1
+            TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPPT(1,I)
+            TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPPT(1,I)
           END DO
-          
-          RETURN
-      END SUBROUTINE LINEARTEMP
-
-      SUBROUTINE QUADRATICTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
-     & TEMPERATURE,GLOBALDOFS,NDOFS)
-C Temperature = A+Bx+Cx**2
-C A = TBOTTOM
-C B = -(3*TBOTTOM-4*TMID+TTOP)/(BX-AX)
-C C = 2*(TBOTTOM-2*TMID+TTOP)/(BX-AX)**2
-        INTEGER I,J
-        INTEGER :: NDOFS
-        INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
-        DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TMID,TBOTTOM
-        DOUBLE PRECISION :: TEMPERATURE(NDOFS)
-        DOUBLE PRECISION :: A,B,C 
-
-C Define quadratic coefficients, with x = 0 at bottom face
-        A = TBOTTOM
-        B = -(3.0D0*TBOTTOM-4.0D0*TMID+TTOP)/(BX-AX)
-        C = 2.0D0*(TBOTTOM-2.0D0*TMID+TTOP)/((BX-AX)**2.0D0)
-
-        DO I=1,NX+1
-            DO J=1,NY+1
-              DX=(BX-AX)*(I-1)/NX
-              TEMPERATURE(GLOBALDOFS(I,J,1)) = A+B*DX+C*(DX**2.0D0)
-              TEMPERATURE(GLOBALDOFS(I,J,2)) = A+B*DX+C*(DX**2.0D0)
-            END DO
         END DO
-
-        RETURN
-
-      END SUBROUTINE QUADRATICTEMP
-
-      SUBROUTINE TRILINEARTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
-     & TEMPERATURE,GLOBALDOFS,NDOFS)
-C Hourglass-type distribution
-C Top 1/4: linear between Tm and Tt
-C Middle 1/2: constant Tm
-C Bottom 1/4: linear between Tm and Tb   
-
-        INTEGER I,J
-        INTEGER :: NDOFS
-        INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
-        DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TMID,TBOTTOM
-        DOUBLE PRECISION :: TEMPERATURE(NDOFS)
-        DOUBLE PRECISION :: H,Z,TEMPVAL 
-
-C Thickness
-        H = BX-AX
-
-        DO I=1,NX+1
-            DO J=1,NY+1
-              Z=(BX-AX)*(I-1)/NX
-              IF((Z/H .GE. 0.0D0) .AND. (Z/H .LT. 0.25D0)) THEN
-C Bottom distribution
-                TEMPVAL = 4.0D0*TBOTTOM*(0.25D0-Z/H)+4.0D0*TMID*Z/H
-                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
-                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
-              ELSE IF((Z/H .GE. 0.25D0) .AND. (Z/H .LE. 0.75D0)) THEN
-C Middle distribution
-                TEMPVAL = TMID
-                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
-                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
-              ELSE
-C Top distribution
-                TEMPVAL = 4.0D0*TMID*(1.0D0-Z/H)+
-     & 4.0D0*TTOP*(-0.75D0+Z/H)
-                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
-                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
-              END IF
-            END DO
-        END DO
-
-      END SUBROUTINE TRILINEARTEMP 
-
-      SUBROUTINE TRIBLOCKTEMP(AX,BX,AY,BY,TTOP,TMID,TBOTTOM,NX,NY,
-     & TEMPERATURE,GLOBALDOFS,NDOFS)
-C Triple-block type distribution
-C Top 1/4: constant Tt
-C Middle 1/2: constant Tm
-C Bottom 1/4: constant Tb
-   
-        INTEGER I,J
-        INTEGER :: NDOFS
-        INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
-        DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TMID,TBOTTOM
-        DOUBLE PRECISION :: TEMPERATURE(NDOFS)
-        DOUBLE PRECISION :: H,Z,TEMPVAL 
-   
-C Thickness
-        H = BX-AX
-
-        DO I=1,NX+1
-            DO J=1,NY+1
-                Z=(BX-AX)*(I-1)/NX
-                IF((Z/H .GE. 0.0D0) .AND. (Z/H .LT. 0.25D0)) THEN
-C Bottom distribution
-                TEMPVAL = TBOTTOM
-                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
-                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
-                ELSE IF(Z/H .EQ. 0.25D0) THEN
-C Discontinuity set to average value
-                TEMPVAL = 0.50D0*(TBOTTOM+TMID)
-                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
-                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
-                ELSE IF((Z/H .GT. 0.25D0) .AND. (Z/H .LT. 0.75D0)) THEN
-C Middle distribution
-                TEMPVAL = TMID
-                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
-                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
-                ELSE IF(Z/H .EQ. 0.75D0) THEN
-                TEMPVAL = 0.50D0*(TMID+TTOP)
-                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
-                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
-                ELSE
-C Top distribution
-                TEMPVAL = TTOP
-                TEMPERATURE(GLOBALDOFS(I,J,1)) = TEMPVAL
-                TEMPERATURE(GLOBALDOFS(I,J,2)) = TEMPVAL
-                END IF
-            END DO
-        END DO
-   
-        END SUBROUTINE TRIBLOCKTEMP 
-      
-      SUBROUTINE CONSTANTTEMP(TTOP,TEMPERATURE,NDOFS)
-C Temperature = TTOP
-          INTEGER :: NDOFS
-          DOUBLE PRECISION :: TTOP,TEMPERATURE(NDOFS)
-          
-          TEMPERATURE = TTOP
-          RETURN
-      END SUBROUTINE CONSTANTTEMP
+      END SUBROUTINE NODETEMP
       
       SUBROUTINE FTHERMALBEAM(AX,BX,AY,BY,THICK,YOUNG,ALPHAX,
-     & ALPHAY,TREF,TTYPE,TTOP,TMID,TBOTTOM,FBEAM)
+     & ALPHAY,TREF,TEMPPT,FBEAM,NX)
           
-          INTEGER :: TTYPE,I,J
+          INTEGER :: NX
           DOUBLE PRECISION :: AX,BX,AY,BY,THICK,YOUNG,ALPHAX,
-     & ALPHAY,TREF,TTOP,TMID,TBOTTOM
-          DOUBLE PRECISION :: FBEAM(6)
-          DOUBLE PRECISION :: A,IZ,P,M,LX,LY,PL,PNL,ML,MNL
+     & ALPHAY,TREF
+          DOUBLE PRECISION :: FBEAM(6),TEMPPT(1,NX+1)
+          DOUBLE PRECISION :: A,IZ,P,M,LX,LY,TC,ELTG
           
-          LY = BX-AX
-          LX = BY-AY
+          LY = BX-AX !This is h - beam depth
+          LX = BY-AY !Beam span
           A = LY*THICK
           IZ = THICK*(LY**3)/12.0D0
-          
-          IF(TTYPE .EQ. 0) THEN !Constant temperature - only TTOP is read
-            P = (TTOP-TREF)*YOUNG*A*ALPHAY
-            M = 0.0D0
-          ELSEIF(TTYPE .EQ. 1) THEN !Linear temperature - only TTOP and TBOTTOM are read
-            P = 0.5*(TTOP+TBOTTOM-2.0D0*TREF)*YOUNG*A*ALPHAY
-            M = YOUNG*IZ*ALPHAY*(TTOP-TBOTTOM)/LY
-          ELSEIF(TTYPE .EQ. 2) THEN !Quadratic temperature - TTOP, TMID, TBOTTOM are read
-C Khazanovich (1994) Eqs. 7.35, 7.37, and 7.38
-            P = (((TTOP+TBOTTOM+4.0D0*TMID)/6.0D0)-TREF)*YOUNG*A*ALPHAY 
-C Khazanovich (1994) Eqs. 7.36 and 7.39
-            M = YOUNG*IZ*ALPHAY*(TTOP-TBOTTOM)/LY
-          ELSEIF(TTYPE .EQ. 3) THEN !Trilinear temperature - TTOP, TMID, TBOTTOM are read
-C Derived from Khazanovich (1994) Eq. 7.32
-            P = (((TTOP+TBOTTOM+6.0D0*TMID)/8.0D0)-TREF)*YOUNG*A*ALPHAY
-C Derived from Khazanovich (1994) Eq. 7.33
-            M = YOUNG*IZ*ALPHAY*(5.0D0/8.0D0)*(TTOP-TBOTTOM)/LY
-          ELSEIF(TTYPE .EQ. 4) THEN !Triblock temperature - TTOP, TMID, TBOTTOM are read
-C Derived from Khazanovich (1994) Eq. 7.32
-            P = (((TTOP+TBOTTOM+2.0D0*TMID)/4.0D0)-TREF)*YOUNG*A*ALPHAY
-C Derived from Khazanovich (1994) Eq. 7.33
-            M = YOUNG*IZ*ALPHAY*(9.0D0/8.0D0)*(TTOP-TBOTTOM)/LY
-          END IF
-C Custom temperature field = triblock + frac*linear 
 
-C Linear component, Tbot is set to -Tbot
-        PL = 0.5*(TTOP-TBOTTOM-2.0D0*TREF)*YOUNG*A*ALPHAY
-        ML = YOUNG*IZ*ALPHAY*(TTOP+TBOTTOM)/LY
-C Non-linear component
-        PNL = (((TTOP+TBOTTOM+2.0D0*TMID)/4.0D0)-TREF)*YOUNG*A*ALPHAY
-        MNL = YOUNG*IZ*ALPHAY*(9.0D0/8.0D0)*(TTOP-TBOTTOM)/LY
+          CALL EQUIVBEAMTEMP(TEMPPT,NX,LY,TC,ELTG)
 
-            P = PNL + 0.0D0*PL
-            M = MNL + 0.0D0*ML
+          P = (TC-TREF)*A*YOUNG*ALPHAY
+          M = ELTG*YOUNG*ALPHAY*IZ
           
           FBEAM(1) = 0.0D0
           FBEAM(2) = -P
@@ -574,14 +405,47 @@ C Non-linear component
           RETURN
           
       END SUBROUTINE FTHERMALBEAM
+
+      SUBROUTINE EQUIVBEAMTEMP(TEMPPT,NX,THICKNESS,TC,ELTG)
+        DOUBLE PRECISION :: TEMPPT(1,NX+1)
+        DOUBLE PRECISION :: THICKNESS,TC,ELTG
+        INTEGER :: NX
+
+        DOUBLE PRECISION, ALLOCATABLE :: Z(:),W(:)
+        DOUBLE PRECISION :: DZ
+
+        ALLOCATE(Z(NX+1),W(NX+1))
+
+        DZ = THICKNESS/DBLE(NX)
+        W = DZ
+        W(1) = 0.5D0*DZ
+        W(NIX+1) = W(1)
+
+        DO I=1,NX+1
+          Z(I) = -0.5D0*THICKNESS+(I-1)*DZ
+        END DO
+
+        TC = 0.0D0
+        ELTG = 0.0D0
+        DO I=1,NX+1
+          TC = TC + TEMPPT(1,I)*W(I)
+          ELTG = ELTG + TEMPPT(1,I)*Z(I)*W(I)
+        END DO
+
+        TC = TC/THICKNESS;
+        ELTG = -12.0D0*ELTG/THICKNESS**3
+
+        DEALLOCATE(Z,W)
+      END SUBROUTINE EQUIVBEAMTEMP
       
       SUBROUTINE FTHERMALELASTIC(AX,BX,AY,BY,THICK,YOUNG,
-     & POISSON,ALPHAX,ALPHAY,TELEMENT,FELASTIC,ISOTROPIC)
+     & POISSON,ALPHAX,ALPHAY,TREF,TELEMENT,FELASTIC,
+     & ISOTROPIC)
           
           INTEGER :: NGP,I,J
           DOUBLE PRECISION :: AX,BX,AY,BY,THICK,YOUNG,
      & POISSON,ALPHAX,ALPHAY
-          DOUBLE PRECISION :: TNODE
+          DOUBLE PRECISION :: TREF
           DOUBLE PRECISION :: FELASTIC(8),TELEMENT(8)
           DOUBLE PRECISION :: AREA,JACOBIAN,X,Y,TGP
           DOUBLE PRECISION :: DMAT(3,3),NMAT(2,8),BMAT(3,8),GP(2),
@@ -605,8 +469,8 @@ C Non-linear component
                 Y = 0.5*(BY-AY)*GP(J)+0.5*(BY+AY)
                 CALL GAUSSTEMPERATURE(AX,BX,AY,BY,X,Y,TELEMENT,TGP)
                 CALL MATRICES(X,Y,AX,AY,BX,BY,NMAT,BMAT)
-                THERMALSTRAIN(1) = ALPHAX*TGP
-                THERMALSTRAIN(2) = ALPHAY*TGP
+                THERMALSTRAIN(1) = ALPHAX*(TGP-TREF)
+                THERMALSTRAIN(2) = ALPHAY*(TGP-TREF)
                 THERMALSTRAIN(3) = 0.0D0
                 FELASTIC = FELASTIC + MATMUL(TRANSPOSE(BMAT),
      & MATMUL(DMAT,THERMALSTRAIN))
@@ -782,7 +646,7 @@ C Partition K into Kbb,Kbi,Kib,Kii, and F into Fi,Fb
 					if (i2.LE.nband) KiB(I,J)=Kband(i2,j1)
 	            else
                       j2=j1-i1+1
-					if (j2.LE.nband) 	KiB(I,J)=Kband(j2,i1)
+					if (j2.LE.nband) KiB(I,J)=Kband(j2,i1)
                   end if
 
               END DO
