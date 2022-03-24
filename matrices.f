@@ -1,9 +1,6 @@
       SUBROUTINE INTERPMAT(NX,NBDOFS,AX,BX,AY,BY,SMAT,TMAT)
           
-c          USE MATRIXFUNCTIONS
-          INCLUDE 'ABA_PARAM.INC'
-          
-          INTEGER :: NX,NBDOFS
+          INTEGER :: NX,NBDOFS,I,J
           DOUBLE PRECISION :: AX,BX,AY,BY
           DOUBLE PRECISION :: SMAT(NBDOFS,6),TMAT(6,NBDOFS)
           
@@ -95,7 +92,7 @@ C Transverse and rotation components
 c This subroutine evaluates the plane stress elastic matrix (D)
 c Young = Young's Modulus, Poisson = Poisson ratio
           
-          INCLUDE 'ABA_PARAM.INC'
+          INTEGER I,J
           
           DOUBLE PRECISION :: YOUNG, POISSON
           DOUBLE PRECISION :: DMAT(3,3)
@@ -133,7 +130,7 @@ c and the matrix of their derivatives B at point (X,Y) within an element
 c The x-coords of the rectangular elements range from ax to bx
 c and the y-coords range from ay to by
           
-          INCLUDE 'ABA_PARAM.INC'
+          INTEGER I,J
           
           DOUBLE PRECISION X,Y,AX,AY,BX,BY
           DOUBLE PRECISION :: NMAT(2,8), NN(4), XX(4), YY(4), XX2(4), 
@@ -172,12 +169,12 @@ c If FULLINT is false, K = B'DB*area of element at mid-point
 c The x-coords go from ax to bx and y-coords from ay to by
 c The thickness is THICK
       
-        INCLUDE 'ABA_PARAM.INC'
+        
       
         DOUBLE PRECISION :: AX, BX, AY, BY, THICK, YOUNG, POISSON
         DOUBLE PRECISION :: K(8,8)
         LOGICAL :: FULLINT
-        INTEGER :: NGP=2
+        INTEGER :: NGP=2,I,J
         INTEGER :: CONSTRAINTS(2)
         DOUBLE PRECISION :: DMAT(3,3), NMAT(2,8), BMAT(3,8), GP(2)
         DOUBLE PRECISION :: AREA, JACOBIAN, X, Y
@@ -220,9 +217,9 @@ C K = sum(B'DB) at Gauss points
 c Assigns global DOFs to each node (2 per node, ABAQUS convention)
 c Boundary nodes are assigned 1-8 in ABAQUS' order first (CC-wise)
 c Then, DOFs are assigned to other nodes by column
-          INCLUDE 'ABA_PARAM.INC'
           
-          INTEGER :: NIX,NIY
+          
+          INTEGER :: NIX,NIY,I,J
           INTEGER :: GLOBALDOFS((NIX+1),(NIY+1),2)
           INTEGER :: II
           
@@ -242,8 +239,8 @@ C Accumulate DOFs corresponding to the nodes of each element
 c in ABAQUS order (CC-wise)
 c Essentially creates a connectivity matrix for each element
 c but for DOFs instead of node numbers
-          INCLUDE 'ABA_PARAM.INC'
-          INTEGER :: NIX,NIY
+          
+          INTEGER :: NIX,NIY,I,J
           INTEGER :: ELEMENTDOFS(NIX,NIY,8),GLOBALDOFS(NIX+1,NIY+1,2)
           
           DO I=1,NIX
@@ -317,9 +314,9 @@ C NDOFEL is # of DOFs of the element, always 8
 C FGPSEP, FGPTRAC - unit handles for writing separation and traction to files
 C KSTEP - time step, not used by the model but only for controlling writing
           
-          INCLUDE 'ABA_PARAM.INC'
           
-          INTEGER :: NDOFEL,KSTEP,MODELTYPE
+          
+          INTEGER :: NDOFEL,KSTEP,MODELTYPE,I,J
           INTEGER :: NRHS=1, MCRD=2, NNODE=4, MLVARX=8, NPREDF=8,
      & MDLOAD=8
           DOUBLE PRECISION :: AMATRX(NDOFEL,NDOFEL), COORDS(2,4),
@@ -327,8 +324,8 @@ C KSTEP - time step, not used by the model but only for controlling writing
           
 C The next two allocate statements are to create an interface with UEL
 C Most of the inputs are never used
-          ALLOCATABLE :: RHS(:,:), SVARS(:), ENERGY(:), 
-     & DU(:,:), V(:), A(:), TIME(:), PARAMS(:),
+          DOUBLE PRECISION, ALLOCATABLE :: RHS(:,:), SVARS(:),  
+     & ENERGY(:), DU(:,:), V(:), A(:), TIME(:), PARAMS(:),
      & JDLTYP(:,:), ADLMAG(:,:), DDLMAG(:,:),
      & PREDEF(:, :, :), LFLAGS(:), JPROPS(:)
       
@@ -370,8 +367,7 @@ C and stiffness are calculated
       SUBROUTINE LINEARTEMP(AX,BX,AY,BY,TTOP,TBOTTOM,NX,NY,
      & TEMPERATURE,GLOBALDOFS,NDOFS)
 C Temperature = TBOTTOM + dT*dx
-          INCLUDE 'ABA_PARAM.INC'
-          INTEGER :: NDOFS
+          INTEGER :: NDOFS,I,J
           INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
           DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TBOTTOM
           DOUBLE PRECISION :: TEMPERATURE(NDOFS)
@@ -395,7 +391,7 @@ C Temperature = A+Bx+Cx**2
 C A = TBOTTOM
 C B = -(3*TBOTTOM-4*TMID+TTOP)/(BX-AX)
 C C = 2*(TBOTTOM-2*TMID+TTOP)/(BX-AX)**2
-        INCLUDE 'ABA_PARAM.INC'
+        INTEGER I,J
         INTEGER :: NDOFS
         INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
         DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TMID,TBOTTOM
@@ -426,7 +422,7 @@ C Top 1/4: linear between Tm and Tt
 C Middle 1/2: constant Tm
 C Bottom 1/4: linear between Tm and Tb   
 
-        INCLUDE 'ABA_PARAM.INC'
+        INTEGER I,J
         INTEGER :: NDOFS
         INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
         DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TMID,TBOTTOM
@@ -468,7 +464,7 @@ C Top 1/4: constant Tt
 C Middle 1/2: constant Tm
 C Bottom 1/4: constant Tb
    
-        INCLUDE 'ABA_PARAM.INC'
+        INTEGER I,J
         INTEGER :: NDOFS
         INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
         DOUBLE PRECISION :: AX,BX,AY,BY,TTOP,TMID,TBOTTOM
@@ -522,8 +518,8 @@ C Temperature = TTOP
       
       SUBROUTINE FTHERMALBEAM(AX,BX,AY,BY,THICK,YOUNG,ALPHAX,
      & ALPHAY,TREF,TTYPE,TTOP,TMID,TBOTTOM,FBEAM)
-          INCLUDE 'ABA_PARAM.INC'
-          INTEGER :: TTYPE
+          
+          INTEGER :: TTYPE,I,J
           DOUBLE PRECISION :: AX,BX,AY,BY,THICK,YOUNG,ALPHAX,
      & ALPHAY,TREF,TTOP,TMID,TBOTTOM
           DOUBLE PRECISION :: FBEAM(6)
@@ -581,8 +577,8 @@ C Non-linear component
       
       SUBROUTINE FTHERMALELASTIC(AX,BX,AY,BY,THICK,YOUNG,
      & POISSON,ALPHAX,ALPHAY,TELEMENT,FELASTIC,ISOTROPIC)
-          INCLUDE 'ABA_PARAM.INC'
-          INTEGER :: NGP
+          
+          INTEGER :: NGP,I,J
           DOUBLE PRECISION :: AX,BX,AY,BY,THICK,YOUNG,
      & POISSON,ALPHAX,ALPHAY
           DOUBLE PRECISION :: TNODE
@@ -715,9 +711,8 @@ C IDOFS - list of internal DOFs to be condensed out
 C BDOFS - list of boundary DOFs
           
 c          USE MATRIXFUNCTIONS    
-          INCLUDE 'ABA_PARAM.INC'
       
-          INTEGER :: NDOFS, NBDOFS, NIDOFS
+          INTEGER :: NDOFS, NBDOFS, NIDOFS,I,J
           INTEGER :: BDOFS(NBDOFS), IDOFS(NIDOFS)
        DOUBLE PRECISION :: KBand(Nband,NDOFS),KBBTILDE(NBDOFS,NBDOFS), 
      & KIB(NIDOFS,NBDOFS), KII2(NBAND,NIDOFS), FI(NIDOFS), 

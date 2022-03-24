@@ -6,7 +6,7 @@ OBJECTS = misc.o PPR_model_educational.o matrices.o crack-element-x.o main.o inv
 ARCHIVE = secant-base.tar
 
 CC = gfortran
-DEPS = ABA_PARAM.INC
+DEPS = 
 CFLAGS = -fbacktrace
 OPTIONS = -g 
 

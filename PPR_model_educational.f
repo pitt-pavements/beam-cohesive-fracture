@@ -44,10 +44,9 @@ c =======================================================================
      & DTIME, KSTEP, KINC, JELEM, PARAMS, NDLOAD, JDLTYP, ADLMAG,
      & PREDEF, NPREDF, LFLAGS, MLVARX, DDLMAG, MDLOAD, PNEWDT, JPROPS,
      & NJPRO, PERIOD, T_d, MODELTYPE)
-       INCLUDE 'ABA_PARAM.INC'
-       INTEGER MODELTYPE
-       DIMENSION RHS(MLVARX,*), AMATRX(NDOFEL,NDOFEL), PROPS(*),
-     & SVARS(*), ENERGY(8), COORDS(MCRD, NNODE), U(NDOFEL),
+       INTEGER MODELTYPE, I, J
+       DOUBLE PRECISION :: RHS(MLVARX,*), AMATRX(NDOFEL,NDOFEL), 
+     & PROPS(*), SVARS(*), ENERGY(8), COORDS(MCRD, NNODE), U(NDOFEL),
      & DU(MLVARX,*), V(NDOFEL), A(NDOFEL), TIME(2), PARAMS(*),
      & JDLTYP(MDLOAD,*), ADLMAG(MDLOAD,*), DDLMAG(MDLOAD,*),
      & PREDEF(2, NPREDF, NNODE), LFLAGS(*), JPROPS(*)
@@ -77,7 +76,7 @@ c   MCRD  : Largest active degrees of freedom
 c   NNODE : Number of nodes
 c
 c Variables used in the UEL subroutine
-       DIMENSION Sc(ndofel,ndofel), Fc(ndofel,nrhs),
+       DOUBLE PRECISION :: Sc(ndofel,ndofel), Fc(ndofel,nrhs),
      & T(mcrd,nrhs), T_d(2,mcrd,mcrd), U_l(ndofel), R(mcrd, mcrd),
      & Bc(mcrd,ndofel), Bct(ndofel,mcrd), ShapeN(nnode),
      & del(mcrd), GP(2), GP_w(2), tmp(ndofel,mcrd),
@@ -278,7 +277,6 @@ C Evaluate and print cohesive stresses at nodes
          call k_Bilinear_Coh (T, T_dnode,Gn,Gt,Tn_m,Tt_m,
      & dn, dt, del, psi)
       END IF
-      WRITE(80,*) KSTEP,1,T(2,1)
 
       del(1) = del3
       del(2) = del4
@@ -289,7 +287,6 @@ C Evaluate and print cohesive stresses at nodes
          call k_Bilinear_Coh (T,T_dnode,Gn,Gt,Tn_m,Tt_m,
      & dn, dt, del, psi)
       END IF
-      WRITE(80,*) KSTEP,2,T(2,1)
 
        RETURN
        END SUBROUTINE UEL
@@ -298,8 +295,8 @@ c ====================================================================
 c = Cohesive traction-separation relation of the PPR model ===========
        SUBROUTINE k_Cohesive_PPR (T,T_d,Gam_n,Gam_t,alph,beta,m,n,
      &  dn, dt, dGtn, dGnt, del, deln_max, delt_max)
-       INCLUDE 'ABA_PARAM.INC'
-       DIMENSION T(2,1), T_d(2,2), del(2)
+       INTEGER I,J
+       DOUBLE PRECISION :: T(2,1), T_d(2,2), del(2)
        DOUBLE PRECISION Gam_n, Gam_t, alph, beta, m, n, dn, dt,
      &     dGtn, dGnt, deln_max, delt_max, Tn, Tt, deln, delt, sign_dt
        delt = abs(del(1))
@@ -431,9 +428,10 @@ c   : Coordinate transformation matrix (R) is obtained on the basis of
 c   the deformed configuration
        SUBROUTINE k_Coords_Transform (R, el_length, COORDS, U, ndofel,
      & nnode, mcrd)
-       INCLUDE 'ABA_PARAM.INC'
-       DIMENSION R(mcrd,mcrd), COORDS(mcrd,nnode), U(ndofel)
-       DIMENSION Co_de(mcrd,nnode), Co_de_m(2,2)
+       INTEGER I,J,ndofel,nnode,mcrd
+       DOUBLE PRECISION :: el_length
+       DOUBLE PRECISION :: R(mcrd,mcrd), COORDS(mcrd,nnode), U(ndofel)
+       DOUBLE PRECISION :: Co_de(mcrd,nnode), Co_de_m(2,2)
 c Variables used in the k_Coords_Transform subroutine
 c   Co_de  : Coord. of a cohesive element in the deformed configuration
 c   Co_de_m: Mid-points of a cohesive element to compute the orientation
@@ -464,8 +462,8 @@ c
 c =====================================================================
 c = Matrix operations =================================================
        SUBROUTINE k_Matrix_Zero (A,n,m)
-       INCLUDE 'ABA_PARAM.INC'
-       DIMENSION A(n,m)
+         INTEGER I,J
+         DOUBLE PRECISION :: A(n,m)
        do i = 1, n
           do j = 1, m
              A(i,j) = 0.0
@@ -475,8 +473,8 @@ c = Matrix operations =================================================
        END
 c
        SUBROUTINE k_Matrix_Transpose (A,B,n,m)
-       INCLUDE 'ABA_PARAM.INC'
-       DIMENSION A(n,m), B(m,n)
+         INTEGER I,J
+         DOUBLE PRECISION :: A(n,m), B(m,n)
        call k_Matrix_zero (B,m,n)
        do i = 1, n
           do j = 1, m
@@ -487,8 +485,8 @@ c
        END
 c
        SUBROUTINE k_Matrix_PlusScalar (A,B,c,n,m)
-       INCLUDE 'ABA_PARAM.INC'
-       DIMENSION A(n,m), B(n,m)
+         INTEGER I,J
+         DOUBLE PRECISION :: A(n,m), B(n,m)
        do i = 1, n
           do j = 1, m
              A(i,j) = A(i,j) + c*B(i,j)
@@ -498,8 +496,8 @@ c
        END
 c
        SUBROUTINE k_Matrix_Multiply (A,B,C,l,n,m)
-       INCLUDE 'ABA_PARAM.INC'
-       DIMENSION A(l,n), B(n,m), C(l,m)
+         INTEGER I,J
+         DOUBLE PRECISION :: A(l,n), B(n,m), C(l,m)
        call k_Matrix_zero (C,l,m)
        do i = 1, l
           do j = 1, m
