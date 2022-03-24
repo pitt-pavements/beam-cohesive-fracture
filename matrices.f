@@ -1,5 +1,5 @@
       SUBROUTINE INTERPMAT(NX,NBDOFS,AX,BX,AY,BY,SMAT,TMAT)
-          
+          IMPLICIT NONE
           INTEGER :: NX,NBDOFS,I
           DOUBLE PRECISION :: AX,BX,AY,BY
           DOUBLE PRECISION :: SMAT(NBDOFS,6),TMAT(6,NBDOFS)
@@ -26,7 +26,7 @@ C              SMAT(2*I+2*NX+1,4) = DIRACDELTA(XMID-X)
       END SUBROUTINE INTERPMAT
       
       SUBROUTINE BEAMSTIFFNESSMAT(AX,BX,AY,BY,THICK,YOUNG,KBEAM)
-          
+        IMPLICIT NONE
           DOUBLE PRECISION :: AX,BX,AY,BY,THICK,YOUNG
           DOUBLE PRECISION :: KBEAM(6,6)
           
@@ -73,7 +73,8 @@ C Transverse and rotation components
       
       SUBROUTINE ASSEMBLEBEAM(KGLOBAL,KLOCAL,FGLOBAL,FLOCAL,
      & NDOFS,ELEMENTDOFS)
-          INTEGER :: NDOFS
+          IMPLICIT NONE
+          INTEGER :: NDOFS,I,J
           INTEGER :: ELEMENTDOFS(6)
           DOUBLE PRECISION :: KGLOBAL(NDOFS,NDOFS),KLOCAL(6,6),
      & FGLOBAL(NDOFS),FLOCAL(6)
@@ -91,7 +92,7 @@ C Transverse and rotation components
             SUBROUTINE LINEARELASTIC(YOUNG,POISSON,DMAT,ISOTROPIC)
 c This subroutine evaluates the plane stress elastic matrix (D)
 c Young = Young's Modulus, Poisson = Poisson ratio
-          
+          IMPLICIT NONE
           DOUBLE PRECISION :: YOUNG, POISSON
           DOUBLE PRECISION :: DMAT(3,3)
           LOGICAL :: ISOTROPIC
@@ -127,7 +128,7 @@ c This subroutine evaluates the matrix (N) of linear shape functions
 c and the matrix of their derivatives B at point (X,Y) within an element
 c The x-coords of the rectangular elements range from ax to bx
 c and the y-coords range from ay to by
-          
+          IMPLICIT NONE
           INTEGER I
           
           DOUBLE PRECISION X,Y,AX,AY,BX,BY
@@ -166,9 +167,7 @@ c If FULLINT is true, K = integral(B'DB) at Gauss points
 c If FULLINT is false, K = B'DB*area of element at mid-point
 c The x-coords go from ax to bx and y-coords from ay to by
 c The thickness is THICK
-      
-        
-      
+        IMPLICIT NONE
         DOUBLE PRECISION :: AX, BX, AY, BY, THICK, YOUNG, POISSON
         DOUBLE PRECISION :: K(8,8)
         LOGICAL :: FULLINT
@@ -215,7 +214,7 @@ c Assigns global DOFs to each node (2 per node, ABAQUS convention)
 c Boundary nodes are assigned 1-8 in ABAQUS' order first (CC-wise)
 c Then, DOFs are assigned to other nodes by column
           
-          
+          IMPLICIT NONE
           INTEGER :: NIX,NIY,I,J
           INTEGER :: GLOBALDOFS((NIX+1),(NIY+1),2)
           INTEGER :: II
@@ -236,7 +235,7 @@ C Accumulate DOFs corresponding to the nodes of each element
 c in ABAQUS order (CC-wise)
 c Essentially creates a connectivity matrix for each element
 c but for DOFs instead of node numbers
-          
+          IMPLICIT NONE
           INTEGER :: NIX,NIY,I,J
           INTEGER :: ELEMENTDOFS(NIX,NIY,8),GLOBALDOFS(NIX+1,NIY+1,2)
           
@@ -258,7 +257,8 @@ c specified in ELEMENTDOFs into the global matrix KGLOBAL
 c KLOCAL is always (8,8) while KGLOBAL is (NDOFS,NDOFS)
 c NDOFs is total # of DOFs of the system
 c This subroutine assembles the full matrix
-          INTEGER :: NDOFS, ELEMENTDOFS(8)
+          IMPLICIT NONE
+          INTEGER :: NDOFS, ELEMENTDOFS(8), I,J
           DOUBLE PRECISION :: KGLOBAL(NDOFS,NDOFS), KLOCAL(8,8),
      & FGLOBAL(NDOFS), FLOCAL(8)
           
@@ -280,7 +280,9 @@ c specified in ELEMENTDOFs into the global matrix KGLOBAL
 c KLOCAL is always (8,8) while KGLOBALB is (NBAND,NDOFS)
 c NDOFs is total # of DOFs of the system
 c Thus subroutine assembles a banded matrix
-          INTEGER :: NDOFS, ELEMENTDOFS(8)
+          IMPLICIT NONE
+          INTEGER :: NDOFS, ELEMENTDOFS(8),I,J, NBAND,
+     & I1,J1,JB1
           DOUBLE PRECISION :: KGLOBALB(NBAND,NDOFS), KLOCAL(8,8),
      & FGLOBAL(NDOFS), FLOCAL(8)
           
@@ -311,20 +313,21 @@ C NDOFEL is # of DOFs of the element, always 8
 C FGPSEP, FGPTRAC - unit handles for writing separation and traction to files
 C KSTEP - time step, not used by the model but only for controlling writing
           
+          IMPLICIT NONE
           
-          
-          INTEGER :: NDOFEL,KSTEP,MODELTYPE
+          INTEGER :: NDOFEL,KSTEP,MODELTYPE,JELEM,JTYPE,KINC,
+     & NJPRO, NPROPS, NSVARS, PERIOD, PNEWDT, NDLOAD
           INTEGER :: NRHS=1, MCRD=2, NNODE=4, MLVARX=8, NPREDF=8,
      & MDLOAD=8
           DOUBLE PRECISION :: AMATRX(NDOFEL,NDOFEL), COORDS(2,4),
-     & U(NDOFEL), T_d(2,2,2)
+     & U(NDOFEL), T_d(2,2,2), PROPS(*)
           
 C The next two allocate statements are to create an interface with UEL
 C Most of the inputs are never used
           DOUBLE PRECISION, ALLOCATABLE :: RHS(:,:), SVARS(:),  
      & ENERGY(:), DU(:,:), V(:), A(:), TIME(:), PARAMS(:),
      & JDLTYP(:,:), ADLMAG(:,:), DDLMAG(:,:),
-     & PREDEF(:, :, :), LFLAGS(:), JPROPS(:)
+     & PREDEF(:, :, :), LFLAGS(:), JPROPS(:), DTIME(:)
       
           ALLOCATE(RHS(MLVARX,NRHS), SVARS(4), ENERGY(8), 
      & DU(MLVARX,100), V(NDOFEL), A(NDOFEL), TIME(2), PARAMS(100),
@@ -363,7 +366,8 @@ C and stiffness are calculated
       
       SUBROUTINE NODETEMP(AX,BX,AY,BY,TEMPPT,NX,NY,
      & TEMPERATURE,GLOBALDOFS,NDOFS)
-        INTEGER :: NDOFS,I,J
+        IMPLICIT NONE
+        INTEGER :: NDOFS,I,J,NX,NY
         INTEGER :: GLOBALDOFS(NX+1,NY+1,2)
         DOUBLE PRECISION :: AX,BX,AY,BY
         DOUBLE PRECISION :: TEMPERATURE(NDOFS),TEMPPT(1,NX+1)
@@ -378,7 +382,7 @@ C and stiffness are calculated
       
       SUBROUTINE FTHERMALBEAM(AX,BX,AY,BY,THICK,YOUNG,ALPHAX,
      & ALPHAY,TREF,TEMPPT,FBEAM,NX)
-          
+          IMPLICIT NONE
           INTEGER :: NX
           DOUBLE PRECISION :: AX,BX,AY,BY,THICK,YOUNG,ALPHAX,
      & ALPHAY,TREF
@@ -407,9 +411,10 @@ C and stiffness are calculated
       END SUBROUTINE FTHERMALBEAM
 
       SUBROUTINE EQUIVBEAMTEMP(TEMPPT,NX,THICKNESS,TC,ELTG)
+        IMPLICIT NONE
         DOUBLE PRECISION :: TEMPPT(1,NX+1)
         DOUBLE PRECISION :: THICKNESS,TC,ELTG
-        INTEGER :: NX
+        INTEGER :: NX,I
 
         DOUBLE PRECISION, ALLOCATABLE :: Z(:),W(:)
         DOUBLE PRECISION :: DZ
@@ -419,7 +424,7 @@ C and stiffness are calculated
         DZ = THICKNESS/DBLE(NX)
         W = DZ
         W(1) = 0.5D0*DZ
-        W(NIX+1) = W(1)
+        W(NX+1) = W(1)
 
         DO I=1,NX+1
           Z(I) = -0.5D0*THICKNESS+(I-1)*DZ
@@ -441,7 +446,7 @@ C and stiffness are calculated
       SUBROUTINE FTHERMALELASTIC(AX,BX,AY,BY,THICK,YOUNG,
      & POISSON,ALPHAX,ALPHAY,TREF,TELEMENT,FELASTIC,
      & ISOTROPIC)
-          
+          IMPLICIT NONE
           INTEGER :: NGP,I,J
           DOUBLE PRECISION :: AX,BX,AY,BY,THICK,YOUNG,
      & POISSON,ALPHAX,ALPHAY
@@ -491,6 +496,7 @@ C |                             |
 C |                             |
 C |                             |
 C TELEMENT(1)----------------TELEMENT(3)
+          IMPLICIT NONE
           DOUBLE PRECISION :: AX,BX,AY,BY,X,Y,TNODE
           DOUBLE PRECISION :: TELEMENT(8)
           DOUBLE PRECISION :: AREA
@@ -508,7 +514,8 @@ C TELEMENT(1)----------------TELEMENT(3)
       END SUBROUTINE GAUSSTEMPERATURE
       
       SUBROUTINE WRITEEXTERNALMESH(NELEM,AX,BX,AY,BY,FINPUT)
-          INTEGER :: NELEM
+        IMPLICIT NONE
+          INTEGER :: NELEM,I
           DOUBLE PRECISION :: AX(NELEM),BX(NELEM),AY(NELEM),
      & BY(NELEM)
           CHARACTER(LEN=200) :: FINPUT,FOUTPUT
@@ -530,7 +537,8 @@ C TELEMENT(1)----------------TELEMENT(3)
       END SUBROUTINE WRITEEXTERNALMESH
       
       SUBROUTINE WRITEINTERNALMESH(NX,NY,AX,BX,AY,BY,FINPUT)
-          INTEGER :: NX,NY
+        IMPLICIT NONE
+          INTEGER :: NX,NY,I,J
           DOUBLE PRECISION :: AX,BX,AY,BY
           CHARACTER(LEN=200) :: FINPUT,FOUTPUT
           
@@ -564,6 +572,7 @@ C TELEMENT(1)----------------TELEMENT(3)
 
       SUBROUTINE CONDENSEDMATB(Kband,F,KBBTILDE,KII2,KIB,FI,FBTILDE,
      & BDOFS,IDOFS,NDOFS,NBAND,NBDOFS,NIDOFS)
+        IMPLICIT NONE
 C Code for static condensation of the global stiffness mat K
 C This subroutine runs on a banded matrix
 C The problem Ku=f is partitioned as  [Kbb Kbi;Kib Kii](ub;ui)=(fb;fi)
@@ -576,7 +585,8 @@ C BDOFS - list of boundary DOFs
           
 c          USE MATRIXFUNCTIONS    
       
-          INTEGER :: NDOFS, NBDOFS, NIDOFS,I,J
+          INTEGER :: NDOFS, NBDOFS, NIDOFS,I,J, NBAND,I1,I2,J2,
+     & J1,INFO
           INTEGER :: BDOFS(NBDOFS), IDOFS(NIDOFS)
        DOUBLE PRECISION :: KBand(Nband,NDOFS),KBBTILDE(NBDOFS,NBDOFS), 
      & KIB(NIDOFS,NBDOFS), KII2(NBAND,NIDOFS), FI(NIDOFS), 
