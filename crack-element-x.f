@@ -1,6 +1,6 @@
       SUBROUTINE CRACKELEMENTX(AX,BX,AY,BY,THICK,YOUNG,POISSON,
      & TREF,TEMPPT,ALPHAX,ALPHAY,VB,
-     & TSTEP,KIB,FI,FSEP,FDISPI,FFORCEI)
+     & TSTEP,KIB,FI,FSEP,FDISPI,FFORCEI,FCOHSTRESS)
 
           USE CRACKELEMENTX_MEMBERS
           IMPLICIT NONE
@@ -10,7 +10,7 @@
           DOUBLE PRECISION VB(6)
           DOUBLE PRECISION KIB(NICOMPDOFS,NBCOMPDOFS),
      & FI(NICOMPDOFS)
-          INTEGER FSEP,FDISPI,FFORCEI
+          INTEGER FSEP,FDISPI,FFORCEI,FCOHSTRESS
 
           INTEGER :: II,NDOFEL=8,I,J
           INTEGER :: LOCALDOFS(8)
@@ -124,11 +124,11 @@ C Cohesive elements
                             KCOH = 0.0
                           CASE(2)
                             CALL STIFFNESSMATCOHESIVE(PROPS,KCOH,
-     & COORDS,TSTEP,COHU,T_de,NDOFEL,MODELTYPE)
+     & COORDS,TSTEP,COHU,T_de,NDOFEL,MODELTYPE,FCOHSTRESS)
                           CASE DEFAULT
                             COHU = 0.0
                             CALL STIFFNESSMATCOHESIVE(PROPS,KCOH,
-     & COORDS,1,COHU,T_de,NDOFEL,MODELTYPE)
+     & COORDS,1,COHU,T_de,NDOFEL,MODELTYPE,FCOHSTRESS)
 C PPR initial stiffness = 10^5, multiply by 10^6 to make it 10^11
 C Bilinear initial stiffness = 10^11, no need to increase it further
                             IF(MODELTYPE .EQ. 1) THEN

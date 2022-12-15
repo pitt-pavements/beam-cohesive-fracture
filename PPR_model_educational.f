@@ -43,8 +43,8 @@ c =======================================================================
      & PROPS, NPROPS, COORDS, MCRD, NNODE, U, DU, V, A, JTYPE, TIME,
      & DTIME, KSTEP, KINC, JELEM, PARAMS, NDLOAD, JDLTYP, ADLMAG,
      & PREDEF, NPREDF, LFLAGS, MLVARX, DDLMAG, MDLOAD, PNEWDT, JPROPS,
-     & NJPRO, PERIOD, T_d, MODELTYPE)
-       INTEGER MODELTYPE, I, J
+     & NJPRO, PERIOD, T_d, MODELTYPE, FCOHSTRESS)
+       INTEGER MODELTYPE, I, J, FCOHSTRESS
        DOUBLE PRECISION :: RHS(MLVARX,*), AMATRX(NDOFEL,NDOFEL), 
      & PROPS(*), SVARS(*), ENERGY(8), COORDS(MCRD, NNODE), U(NDOFEL),
      & DU(MLVARX,*), V(NDOFEL), A(NDOFEL), TIME(2), PARAMS(*),
@@ -236,7 +236,7 @@ C Tangential interaction
  
 C          T_d(i,:,:) = T_dnode(:,:)
 
-C	      WRITE(80,*) KSTEP,i,T(2,1)
+	      WRITE(FCOHSTRESS,*) KSTEP,i,T(2,1)
      
           ShapeN(1) = -N1
           ShapeN(2) = -N2

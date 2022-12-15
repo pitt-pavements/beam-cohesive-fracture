@@ -7,3 +7,5 @@
 *.o
 *.out
 fort.*
+*.sh
+*.inp
