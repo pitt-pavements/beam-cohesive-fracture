@@ -1,4 +1,4 @@
-*/*
+*.vscode
 *.mod
 *.stackdump
 *.txt
@@ -9,3 +9,6 @@
 fort.*
 *.sh
 *.inp
+web-app/.vscode
+web-app/bin/
+web-app/obj/
